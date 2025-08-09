@@ -1,330 +1,362 @@
 "use client"
 
-import { useState, useEffect } from "react"
-import { useAuth } from "@/lib/auth"
+import { useState } from "react"
 import { ProtectedRoute } from "@/components/protected-route"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Progress } from "@/components/ui/progress"
-import { GraduationCap, Award, AlertTriangle, DollarSign, BookOpen, Calendar } from 'lucide-react'
-import { getStudent, getMeritsByStudent, getDisciplineByStudent, getPaymentsByStudent } from "@/lib/firestore"
-import type { Student, Merit, Discipline, Payment } from "@/lib/models"
+import { SAMPLE_STUDENTS } from "@/lib/data"
+import { GraduationCap, BookOpen, Award, AlertTriangle, CreditCard, TrendingUp, Target } from "lucide-react"
+import { useRouter } from "next/navigation"
+import { AboutFooter } from "@/components/about-footer"
 
 export default function StudentDashboard() {
-  const { user } = useAuth()
-  const [student, setStudent] = useState<Student | null>(null)
-  const [merits, setMerits] = useState<Merit[]>([])
-  const [disciplines, setDisciplines] = useState<Discipline[]>([])
-  const [payments, setPayments] = useState<Payment[]>([])
-  const [loading, setLoading] = useState(true)
+  const [loadingAction, setLoadingAction] = useState<string | null>(null)
+  const router = useRouter()
 
-  useEffect(() => {
-    if (user?.studentId) {
-      loadStudentData()
+  // In real app, get current student's data
+  const student = SAMPLE_STUDENTS[0]
+
+  const stats = [
+    {
+      title: "Current GPA",
+      value: student.academicPerformance.gpa.toFixed(1),
+      icon: TrendingUp,
+      color: "bg-blue-500",
+    },
+    {
+      title: "Discipline Points",
+      value: `${student.disciplinePoints}/100`,
+      icon: Target,
+      color: student.disciplinePoints >= 80 ? "bg-green-500" : "bg-red-500",
+    },
+    {
+      title: "Total Merits",
+      value: student.merits.length,
+      icon: Award,
+      color: "bg-yellow-500",
+    },
+    {
+      title: "Fee Balance",
+      value: `KES ${student.feeBalance.toLocaleString()}`,
+      icon: CreditCard,
+      color: "bg-purple-500",
+    },
+  ]
+
+  const handleQuickAction = async (action: string) => {
+    setLoadingAction(action)
+
+    switch (action) {
+      case "view-grades":
+        await new Promise((resolve) => setTimeout(resolve, 500))
+        router.push("/student/performance")
+        break
+      case "view-discipline":
+        await new Promise((resolve) => setTimeout(resolve, 500))
+        router.push("/student/discipline")
+        break
+      case "view-merits":
+        await new Promise((resolve) => setTimeout(resolve, 500))
+        router.push("/student/merits")
+        break
+      case "view-fees":
+        await new Promise((resolve) => setTimeout(resolve, 500))
+        router.push("/student/fees")
+        break
     }
-  }, [user?.studentId])
 
-  const loadStudentData = async () => {
-    if (!user?.studentId) return
-
-    try {
-      setLoading(true)
-      const [studentData, studentMerits, studentDisciplines, studentPayments] = await Promise.all([
-        getStudent(user.studentId),
-        getMeritsByStudent(user.studentId),
-        getDisciplineByStudent(user.studentId),
-        getPaymentsByStudent(user.studentId),
-      ])
-
-      setStudent(studentData)
-      setMerits(studentMerits)
-      setDisciplines(studentDisciplines)
-      setPayments(studentPayments)
-    } catch (error) {
-      console.error("Failed to load student data:", error)
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  const totalMeritPoints = merits.reduce((sum, merit) => sum + merit.points, 0)
-  const pendingPayments = payments.filter(p => p.status === "pending")
-  const overduePayments = payments.filter(p => p.status === "overdue")
-  const unresolvedDisciplines = disciplines.filter(d => !d.resolved)
-
-  if (loading) {
-    return (
-      <ProtectedRoute allowedRoles={["student"]}>
-        <div className="container mx-auto p-6">
-          <div className="space-y-6">
-            <div className="h-8 bg-muted rounded w-64 animate-pulse" />
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-              {[...Array(4)].map((_, i) => (
-                <Card key={i}>
-                  <CardHeader>
-                    <div className="h-4 bg-muted rounded w-32 animate-pulse" />
-                  </CardHeader>
-                  <CardContent>
-                    <div className="h-8 bg-muted rounded w-16 animate-pulse" />
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          </div>
-        </div>
-      </ProtectedRoute>
-    )
-  }
-
-  if (!student) {
-    return (
-      <ProtectedRoute allowedRoles={["student"]}>
-        <div className="container mx-auto p-6">
-          <div className="text-center py-12">
-            <GraduationCap className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
-            <h2 className="text-2xl font-bold mb-2">Student Profile Not Found</h2>
-            <p className="text-muted-foreground">
-              Unable to load your student profile. Please contact your school administrator.
-            </p>
-          </div>
-        </div>
-      </ProtectedRoute>
-    )
+    setLoadingAction(null)
   }
 
   return (
     <ProtectedRoute allowedRoles={["student"]}>
-      <div className="container mx-auto p-6">
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold mb-2">My Dashboard</h1>
-          <p className="text-muted-foreground">Track your academic progress</p>
-        </div>
+      <div className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
+        <div className="px-4 py-6 sm:px-0">
+          <div className="mb-8">
+            <h1 className="text-3xl font-bold text-gray-900 dark:text-white">My Dashboard</h1>
+            <p className="mt-2 text-gray-600">Welcome back, {student.name}! Here's your academic overview</p>
+          </div>
 
-        {/* Student Profile Card */}
-        <Card className="mb-6">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <GraduationCap className="h-5 w-5" />
-              {student.name}
-            </CardTitle>
-            <CardDescription>
-              {student.grade} • {student.class}
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div className="flex items-center gap-2">
-                <Calendar className="h-4 w-4 text-muted-foreground" />
-                <span className="text-sm">
-                  Born: {student.dateOfBirth || "Not specified"}
-                </span>
-              </div>
-              <div className="flex items-center gap-2">
-                <span className="text-sm">
-                  Email: {student.email || "Not specified"}
-                </span>
-              </div>
-              <div className="flex items-center gap-2">
-                <span className="text-sm">
-                  Student ID: {student.id}
-                </span>
+          {/* Stats Grid */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+            {stats.map((stat) => {
+              const Icon = stat.icon
+              return (
+                <div key={stat.title} className="bg-white dark:bg-gray-800 shadow rounded-lg">
+                  <div className="p-5">
+                    <div className="flex items-center">
+                      <div className="flex-shrink-0">
+                        <div className={`${stat.color} p-3 rounded-md`}>
+                          <Icon className="h-6 w-6 text-white" />
+                        </div>
+                      </div>
+                      <div className="ml-5 w-0 flex-1">
+                        <dl>
+                          <dt className="text-sm font-medium text-gray-500 truncate">{stat.title}</dt>
+                          <dd className="text-2xl font-semibold text-gray-900">{stat.value}</dd>
+                        </dl>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+
+          {/* Academic Performance & Progress */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div className="bg-white shadow rounded-lg">
+              <div className="px-4 py-5 sm:p-6">
+                <h3 className="text-lg leading-6 font-medium text-gray-900 mb-4">
+                  My Grades - {student.academicPerformance.term}
+                </h3>
+                <div className="space-y-4">
+                  {student.academicPerformance.subjects.map((subject, index) => (
+                    <div key={index} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                      <div className="flex items-center space-x-3">
+                        <div className="flex-shrink-0">
+                          <div className="h-8 w-8 bg-blue-100 rounded-full flex items-center justify-center">
+                            <BookOpen className="h-4 w-4 text-blue-600" />
+                          </div>
+                        </div>
+                        <div>
+                          <p className="text-sm font-medium text-gray-900">{subject.name}</p>
+                          <p className="text-sm text-gray-500">{subject.score}% Score</p>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <span
+                          className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                            subject.score >= 80
+                              ? "bg-green-100 text-green-800"
+                              : subject.score >= 70
+                                ? "bg-yellow-100 text-yellow-800"
+                                : "bg-red-100 text-red-800"
+                          }`}
+                        >
+                          {subject.grade}
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                <div className="mt-4 p-3 bg-blue-50 rounded-lg">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-medium text-blue-900">Overall GPA</span>
+                    <span className="text-lg font-bold text-blue-900">{student.academicPerformance.gpa}</span>
+                  </div>
+                </div>
               </div>
             </div>
-          </CardContent>
-        </Card>
 
-        {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Merit Points</CardTitle>
-              <Award className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-green-600">{totalMeritPoints}</div>
-              <p className="text-xs text-muted-foreground">
-                From {merits.length} awards
-              </p>
-              <Progress value={Math.min((totalMeritPoints / 100) * 100, 100)} className="mt-2" />
-            </CardContent>
-          </Card>
+            <div className="bg-white shadow rounded-lg">
+              <div className="px-4 py-5 sm:p-6">
+                <h3 className="text-lg leading-6 font-medium text-gray-900 mb-4">My Achievements & Discipline</h3>
+                <div className="space-y-4">
+                  <div className="p-3 bg-green-50 rounded-lg border border-green-200">
+                    <div className="flex items-center justify-between mb-2">
+                      <h4 className="text-sm font-medium text-green-900">Discipline Points</h4>
+                      <span className="text-lg font-bold text-green-900">{student.disciplinePoints}/100</span>
+                    </div>
+                    <div className="w-full bg-green-200 rounded-full h-2">
+                      <div
+                        className="bg-green-600 h-2 rounded-full"
+                        style={{ width: `${student.disciplinePoints}%` }}
+                      ></div>
+                    </div>
+                    <p className="text-xs text-green-700 mt-1">
+                      {student.disciplinePoints >= 80 ? "Excellent behavior!" : "Keep improving!"}
+                    </p>
+                  </div>
 
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Discipline</CardTitle>
-              <AlertTriangle className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-orange-600">{unresolvedDisciplines.length}</div>
-              <p className="text-xs text-muted-foreground">
-                Unresolved incidents
-              </p>
-            </CardContent>
-          </Card>
+                  <div>
+                    <h4 className="text-sm font-medium text-gray-900 mb-2">Recent Merits</h4>
+                    <div className="space-y-2">
+                      {student.merits.slice(0, 2).map((merit) => (
+                        <div key={merit.id} className="flex items-start space-x-3 p-2 bg-yellow-50 rounded-lg">
+                          <div className="flex-shrink-0">
+                            <div className="h-6 w-6 bg-yellow-100 rounded-full flex items-center justify-center">
+                              <Award className="h-3 w-3 text-yellow-600" />
+                            </div>
+                          </div>
+                          <div className="flex-1">
+                            <p className="text-xs font-medium text-gray-900">{merit.title}</p>
+                            <p className="text-xs text-gray-500">{merit.description}</p>
+                            <p className="text-xs text-yellow-600">+{merit.points} points</p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
 
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Pending Fees</CardTitle>
-              <DollarSign className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-blue-600">{pendingPayments.length}</div>
-              <p className="text-xs text-muted-foreground">
-                ${pendingPayments.reduce((sum, p) => sum + p.amount, 0)}
-              </p>
-            </CardContent>
-          </Card>
+                  {student.disciplineHistory.length > 0 && (
+                    <div>
+                      <h4 className="text-sm font-medium text-gray-900 mb-2">Areas for Improvement</h4>
+                      <div className="space-y-2">
+                        {student.disciplineHistory.slice(0, 2).map((incident) => (
+                          <div key={incident.id} className="flex items-start space-x-3 p-2 bg-red-50 rounded-lg">
+                            <div className="flex-shrink-0">
+                              <div className="h-6 w-6 bg-red-100 rounded-full flex items-center justify-center">
+                                <AlertTriangle className="h-3 w-3 text-red-600" />
+                              </div>
+                            </div>
+                            <div className="flex-1">
+                              <p className="text-xs font-medium text-gray-900">{incident.incident}</p>
+                              <p className="text-xs text-red-600">-{incident.pointsDeducted} points</p>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
 
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Overdue</CardTitle>
-              <AlertTriangle className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-red-600">{overduePayments.length}</div>
-              <p className="text-xs text-muted-foreground">
-                ${overduePayments.reduce((sum, p) => sum + p.amount, 0)}
+          {/* Co-curricular Activities & Goals */}
+          <div className="mt-6 grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div className="bg-white shadow rounded-lg">
+              <div className="px-4 py-5 sm:p-6">
+                <h3 className="text-lg leading-6 font-medium text-gray-900 mb-4">My Activities</h3>
+                <div className="space-y-3">
+                  {student.coCurrenticular.map((activity, index) => (
+                    <div key={index} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                      <div>
+                        <p className="text-sm font-medium text-gray-900">{activity.activity}</p>
+                        {activity.position && <p className="text-sm text-gray-500">Position: {activity.position}</p>}
+                      </div>
+                      <span
+                        className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                          activity.performance === "Excellent"
+                            ? "bg-green-100 text-green-800"
+                            : "bg-blue-100 text-blue-800"
+                        }`}
+                      >
+                        {activity.performance}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-white shadow rounded-lg">
+              <div className="px-4 py-5 sm:p-6">
+                <h3 className="text-lg leading-6 font-medium text-gray-900 mb-4">My Goals & Progress</h3>
+                <div className="space-y-4">
+                  <div className="p-3 bg-blue-50 rounded-lg">
+                    <h4 className="text-sm font-medium text-blue-900 mb-2">Academic Goal</h4>
+                    <p className="text-sm text-blue-700">Maintain GPA above 3.5</p>
+                    <div className="mt-2">
+                      <div className="flex items-center justify-between text-xs text-blue-600">
+                        <span>Current: {student.academicPerformance.gpa}</span>
+                        <span>Target: 3.5</span>
+                      </div>
+                      <div className="w-full bg-blue-200 rounded-full h-2 mt-1">
+                        <div
+                          className="bg-blue-600 h-2 rounded-full"
+                          style={{ width: `${Math.min((student.academicPerformance.gpa / 3.5) * 100, 100)}%` }}
+                        ></div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="p-3 bg-green-50 rounded-lg">
+                    <h4 className="text-sm font-medium text-green-900 mb-2">Discipline Goal</h4>
+                    <p className="text-sm text-green-700">Maintain 90+ discipline points</p>
+                    <div className="mt-2">
+                      <div className="flex items-center justify-between text-xs text-green-600">
+                        <span>Current: {student.disciplinePoints}</span>
+                        <span>Target: 90</span>
+                      </div>
+                      <div className="w-full bg-green-200 rounded-full h-2 mt-1">
+                        <div
+                          className="bg-green-600 h-2 rounded-full"
+                          style={{ width: `${Math.min((student.disciplinePoints / 90) * 100, 100)}%` }}
+                        ></div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {student.feeBalance > 0 && (
+                    <div className="p-3 bg-red-50 rounded-lg border border-red-200">
+                      <h4 className="text-sm font-medium text-red-900 mb-1">Fee Balance</h4>
+                      <p className="text-lg font-bold text-red-900">KES {student.feeBalance.toLocaleString()}</p>
+                      <p className="text-xs text-red-700 mt-1">Please remind your parents to clear the balance</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Quick Actions */}
+          <div className="mt-8 bg-white shadow rounded-lg">
+            <div className="px-4 py-5 sm:p-6">
+              <h3 className="text-lg leading-6 font-medium text-gray-900 mb-4">Quick Actions</h3>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                <button
+                  onClick={() => handleQuickAction("view-grades")}
+                  disabled={loadingAction === "view-grades"}
+                  className="flex items-center justify-center px-4 py-2 border border-gray-300 rounded-md shadow-sm bg-white text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                  <BookOpen className="h-4 w-4 mr-2" />
+                  {loadingAction === "view-grades" ? "Loading..." : "View Grades"}
+                </button>
+                <button
+                  onClick={() => handleQuickAction("view-discipline")}
+                  disabled={loadingAction === "view-discipline"}
+                  className="flex items-center justify-center px-4 py-2 border border-gray-300 rounded-md shadow-sm bg-white text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                  <Target className="h-4 w-4 mr-2" />
+                  {loadingAction === "view-discipline" ? "Loading..." : "Discipline Points"}
+                </button>
+                <button
+                  onClick={() => handleQuickAction("view-merits")}
+                  disabled={loadingAction === "view-merits"}
+                  className="flex items-center justify-center px-4 py-2 border border-gray-300 rounded-md shadow-sm bg-white text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                  <Award className="h-4 w-4 mr-2" />
+                  {loadingAction === "view-merits" ? "Loading..." : "My Merits"}
+                </button>
+                <button
+                  onClick={() => handleQuickAction("view-fees")}
+                  disabled={loadingAction === "view-fees"}
+                  className="flex items-center justify-center px-4 py-2 border border-gray-300 rounded-md shadow-sm bg-white text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                  <CreditCard className="h-4 w-4 mr-2" />
+                  {loadingAction === "view-fees" ? "Loading..." : "Fee Balance"}
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* Motivational Section */}
+          <div className="mt-8 bg-gradient-to-r from-blue-500 to-purple-600 dark:from-blue-600 dark:to-purple-700 rounded-lg shadow-lg">
+            <div className="px-6 py-8 text-center">
+              <GraduationCap className="h-12 w-12 text-white mx-auto mb-4" />
+              <h3 className="text-xl font-bold text-white mb-2">Keep Up the Great Work!</h3>
+              <p className="text-blue-100 mb-4">
+                You're doing well in your studies. Stay focused and continue working towards your goals.
               </p>
-            </CardContent>
-          </Card>
+              <div className="flex flex-col sm:flex-row gap-4 justify-center max-w-md mx-auto">
+                <button
+                  onClick={() => handleQuickAction("view-grades")}
+                  disabled={loadingAction === "view-grades"}
+                  className="px-4 py-2 bg-white text-blue-600 rounded-md font-medium hover:bg-blue-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {loadingAction === "view-grades" ? "Loading..." : "View Full Report"}
+                </button>
+                <button className="px-4 py-2 bg-blue-700 text-white rounded-md font-medium hover:bg-blue-800 transition-colors">
+                  Set New Goals
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
-
-        {/* Detailed Information Tabs */}
-        <Tabs defaultValue="merits" className="space-y-4">
-          <TabsList>
-            <TabsTrigger value="merits">My Achievements</TabsTrigger>
-            <TabsTrigger value="discipline">Discipline</TabsTrigger>
-            <TabsTrigger value="payments">Fees & Payments</TabsTrigger>
-          </TabsList>
-
-          <TabsContent value="merits">
-            <Card>
-              <CardHeader>
-                <CardTitle>My Achievements</CardTitle>
-                <CardDescription>
-                  Your recent merits and awards
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                {merits.length === 0 ? (
-                  <div className="text-center py-8">
-                    <Award className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                    <p className="text-muted-foreground">No achievements yet</p>
-                    <p className="text-sm text-muted-foreground mt-2">
-                      Keep working hard to earn your first merit points!
-                    </p>
-                  </div>
-                ) : (
-                  <div className="space-y-4">
-                    {merits.map((merit) => (
-                      <div key={merit.id} className="flex items-start justify-between p-4 border rounded-lg">
-                        <div className="flex-1">
-                          <div className="flex items-center gap-2 mb-2">
-                            <Badge variant="secondary">{merit.type}</Badge>
-                            <span className="text-sm text-muted-foreground">{merit.date}</span>
-                          </div>
-                          <p className="font-medium mb-1">{merit.description}</p>
-                        </div>
-                        <div className="text-right">
-                          <div className="text-lg font-bold text-green-600">+{merit.points}</div>
-                          <div className="text-xs text-muted-foreground">points</div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          <TabsContent value="discipline">
-            <Card>
-              <CardHeader>
-                <CardTitle>Discipline Records</CardTitle>
-                <CardDescription>
-                  Your behavioral incidents and resolutions
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                {disciplines.length === 0 ? (
-                  <div className="text-center py-8">
-                    <Award className="h-12 w-12 text-green-500 mx-auto mb-4" />
-                    <p className="text-green-600 font-medium">Excellent Behavior!</p>
-                    <p className="text-sm text-muted-foreground mt-2">
-                      You have no discipline records. Keep it up!
-                    </p>
-                  </div>
-                ) : (
-                  <div className="space-y-4">
-                    {disciplines.map((discipline) => (
-                      <div key={discipline.id} className="p-4 border rounded-lg">
-                        <div className="flex items-center gap-2 mb-2">
-                          <Badge variant={discipline.severity === "high" ? "destructive" : discipline.severity === "medium" ? "default" : "secondary"}>
-                            {discipline.type}
-                          </Badge>
-                          <Badge variant="outline">{discipline.severity} severity</Badge>
-                          <span className="text-sm text-muted-foreground">{discipline.date}</span>
-                          {discipline.resolved && (
-                            <Badge variant="secondary">Resolved</Badge>
-                          )}
-                        </div>
-                        <p className="font-medium mb-2">{discipline.description}</p>
-                        <p className="text-sm text-muted-foreground">Action: {discipline.action}</p>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          <TabsContent value="payments">
-            <Card>
-              <CardHeader>
-                <CardTitle>Fees & Payments</CardTitle>
-                <CardDescription>
-                  Your school fees and payment history
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                {payments.length === 0 ? (
-                  <div className="text-center py-8">
-                    <DollarSign className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                    <p className="text-muted-foreground">No payment records</p>
-                  </div>
-                ) : (
-                  <div className="space-y-4">
-                    {payments.map((payment) => (
-                      <div key={payment.id} className="flex items-center justify-between p-4 border rounded-lg">
-                        <div className="flex-1">
-                          <div className="flex items-center gap-2 mb-2">
-                            <Badge variant="outline">{payment.type}</Badge>
-                            <Badge variant={
-                              payment.status === "paid" ? "secondary" :
-                              payment.status === "overdue" ? "destructive" : "default"
-                            }>
-                              {payment.status}
-                            </Badge>
-                          </div>
-                          <p className="font-medium mb-1">{payment.description}</p>
-                          <p className="text-sm text-muted-foreground">
-                            Due: {payment.dueDate}
-                            {payment.paidDate && ` • Paid: ${payment.paidDate}`}
-                          </p>
-                        </div>
-                        <div className="text-right">
-                          <div className="text-lg font-bold">${payment.amount}</div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          </TabsContent>
-        </Tabs>
       </div>
+
+      {/* About Footer */}
+      <AboutFooter />
     </ProtectedRoute>
   )
 }

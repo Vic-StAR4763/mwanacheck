@@ -1,127 +1,32 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState } from "react"
 import { ProtectedRoute } from "@/components/protected-route"
 import { useSafeLanguage } from "@/lib/safe-hooks"
 import { AddStudentModal } from "@/components/modals/add-student-modal"
 import { AddUserModal } from "@/components/modals/add-user-modal"
-import { useAuth } from "@/lib/auth"
-import { 
-  getStudentsBySchool, 
-  getUsersBySchool, 
-  getSchool,
-  seedDatabase 
-} from "@/lib/firestore"
-import type { StudentRecord, UserProfile, School } from "@/lib/models"
-import { Users, GraduationCap, AlertTriangle, DollarSign, TrendingUp, Database, Settings } from 'lucide-react'
+import { SAMPLE_STUDENTS, SAMPLE_SCHOOLS } from "@/lib/data"
+import { Users, GraduationCap, AlertTriangle, DollarSign, TrendingUp } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { AboutFooter } from "@/components/about-footer"
-import Link from "next/link"
 
 export default function AdminDashboard() {
   const { t } = useSafeLanguage()
-  const { user } = useAuth()
-  const router = useRouter()
 
   const [showAddStudentModal, setShowAddStudentModal] = useState(false)
   const [showAddUserModal, setShowAddUserModal] = useState(false)
   const [loadingAction, setLoadingAction] = useState<string | null>(null)
+  const router = useRouter()
 
-  const [students, setStudents] = useState<StudentRecord[]>([])
-  const [users, setUsers] = useState<UserProfile[]>([])
-  const [school, setSchool] = useState<School | null>(null)
-  const [loading, setLoading] = useState(true)
-
-  useEffect(() => {
-    if (user?.schoolId) {
-      loadData()
-    }
-  }, [user])
-
-  const loadData = async () => {
-    if (!user?.schoolId) return
-    
-    setLoading(true)
-    try {
-      const [studentsData, usersData, schoolData] = await Promise.all([
-        getStudentsBySchool(user.schoolId),
-        getUsersBySchool(user.schoolId),
-        getSchool(user.schoolId)
-      ])
-      
-      setStudents(studentsData)
-      setUsers(usersData)
-      setSchool(schoolData)
-    } catch (error) {
-      console.error("Failed to load data:", error)
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  const handleQuickAction = async (action: string) => {
-    setLoadingAction(action)
-
-    switch (action) {
-      case "add-user":
-        setShowAddUserModal(true)
-        break
-      case "add-student":
-        setShowAddStudentModal(true)
-        break
-      case "seed-database":
-        try {
-          await seedDatabase()
-          await loadData() // Refresh data after seeding
-        } catch (error) {
-          console.error("Failed to seed database:", error)
-        }
-        break
-      case "manage-users":
-        await new Promise((resolve) => setTimeout(resolve, 500))
-        router.push("/admin/users")
-        break
-      case "manage-offences":
-        await new Promise((resolve) => setTimeout(resolve, 500))
-        router.push("/admin/offences")
-        break
-      case "view-reports":
-        await new Promise((resolve) => setTimeout(resolve, 500))
-        router.push("/admin/reports")
-        break
-    }
-
-    setLoadingAction(null)
-  }
-
-  if (loading) {
-    return (
-      <ProtectedRoute allowedRoles={["admin"]}>
-        <div className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
-          <div className="px-4 py-6 sm:px-0">
-            <div className="animate-pulse">
-              <div className="h-8 bg-gray-200 rounded w-1/4 mb-4"></div>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-                {[...Array(4)].map((_, i) => (
-                  <div key={i} className="h-32 bg-gray-200 rounded"></div>
-                ))}
-              </div>
-            </div>
-          </div>
-        </div>
-      </ProtectedRoute>
-    )
-  }
-
-  const totalTeachers = users.filter(u => u.role === "teacher").length
-  const totalParents = users.filter(u => u.role === "parent").length
-  const pendingFees = students.reduce((sum, student) => sum + (student.feeBalance || 0), 0)
-  const disciplineIssues = students.filter(s => (s.disciplinePoints || 100) < 80).length
+  const totalStudents = SAMPLE_STUDENTS.length
+  const totalTeachers = 5 // Mock data
+  const totalParents = 3 // Mock data
+  const pendingFees = SAMPLE_STUDENTS.reduce((sum, student) => sum + student.feeBalance, 0)
 
   const stats = [
     {
       title: t("admin.totalStudents"),
-      value: students.length,
+      value: totalStudents,
       icon: GraduationCap,
       color: "bg-blue-500",
       change: "+12%",
@@ -142,12 +47,36 @@ export default function AdminDashboard() {
     },
     {
       title: t("admin.disciplineIssues"),
-      value: disciplineIssues,
+      value: 3,
       icon: AlertTriangle,
       color: "bg-red-500",
       change: "-15%",
     },
   ]
+
+  const handleQuickAction = async (action: string) => {
+    setLoadingAction(action)
+
+    switch (action) {
+      case "add-user":
+        setShowAddUserModal(true)
+        break
+      case "add-student":
+        setShowAddStudentModal(true)
+        break
+      case "update-rules":
+        // Simulate navigation delay
+        await new Promise((resolve) => setTimeout(resolve, 500))
+        router.push("/admin/discipline")
+        break
+      case "view-reports":
+        await new Promise((resolve) => setTimeout(resolve, 500))
+        router.push("/admin/reports")
+        break
+    }
+
+    setLoadingAction(null)
+  }
 
   return (
     <ProtectedRoute allowedRoles={["admin"]}>
@@ -155,9 +84,7 @@ export default function AdminDashboard() {
         <div className="px-4 py-6 sm:px-0">
           <div className="mb-8">
             <h1 className="text-3xl font-bold text-gray-900 dark:text-white">{t("admin.title")}</h1>
-            <p className="mt-2 text-gray-600 dark:text-gray-300">
-              {school?.name || "Loading school..."} - {t("admin.overview")}
-            </p>
+            <p className="mt-2 text-gray-600 dark:text-gray-300">{t("admin.overview")}</p>
           </div>
 
           {/* Stats Grid */}
@@ -205,7 +132,7 @@ export default function AdminDashboard() {
                   {t("admin.recentStudentActivities")}
                 </h3>
                 <div className="space-y-4">
-                  {students.slice(0, 3).map((student) => (
+                  {SAMPLE_STUDENTS.slice(0, 3).map((student) => (
                     <div key={student.id} className="flex items-center space-x-3">
                       <div className="flex-shrink-0">
                         <div className="h-8 w-8 bg-blue-100 rounded-full flex items-center justify-center">
@@ -215,25 +142,22 @@ export default function AdminDashboard() {
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-medium text-gray-900 dark:text-white">{student.name}</p>
                         <p className="text-sm text-gray-600 dark:text-gray-400">
-                          GPA: {student.academicPerformance?.gpa || 0} | {t("nav.discipline")}: {student.disciplinePoints || 100}/100
+                          GPA: {student.academicPerformance.gpa} | {t("nav.discipline")}: {student.disciplinePoints}/100
                         </p>
                       </div>
                       <div className="flex-shrink-0">
                         <span
                           className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                            (student.academicPerformance?.gpa || 0) >= 3.0
+                            student.academicPerformance.gpa >= 3.0
                               ? "bg-green-100 text-green-800"
                               : "bg-yellow-100 text-yellow-800"
                           }`}
                         >
-                          {(student.academicPerformance?.gpa || 0) >= 3.0 ? t("status.good") : t("status.needsAttention")}
+                          {student.academicPerformance.gpa >= 3.0 ? t("status.good") : t("status.needsAttention")}
                         </span>
                       </div>
                     </div>
                   ))}
-                  {students.length === 0 && (
-                    <p className="text-gray-500 dark:text-gray-400 text-sm">No students found. Add some students to get started.</p>
-                  )}
                 </div>
               </div>
             </div>
@@ -244,8 +168,8 @@ export default function AdminDashboard() {
                   {t("admin.schoolInformation")}
                 </h3>
                 <div className="space-y-4">
-                  {school && (
-                    <div>
+                  {SAMPLE_SCHOOLS.map((school) => (
+                    <div key={school.id}>
                       <h4 className="font-medium text-gray-900 dark:text-white">{school.name}</h4>
                       <p className="text-sm text-gray-600 dark:text-gray-400 mb-3">{school.address}</p>
                       <div className="space-y-2">
@@ -258,7 +182,7 @@ export default function AdminDashboard() {
                         ))}
                       </div>
                     </div>
-                  )}
+                  ))}
                 </div>
               </div>
             </div>
@@ -270,7 +194,7 @@ export default function AdminDashboard() {
               <h3 className="text-lg leading-6 font-medium text-gray-900 dark:text-white mb-4">
                 {t("dashboard.quickActions")}
               </h3>
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                 <button
                   onClick={() => handleQuickAction("add-user")}
                   disabled={loadingAction === "add-user"}
@@ -288,28 +212,12 @@ export default function AdminDashboard() {
                   {loadingAction === "add-student" ? t("common.loading") : t("admin.addStudent")}
                 </button>
                 <button
-                  onClick={() => handleQuickAction("manage-users")}
-                  disabled={loadingAction === "manage-users"}
+                  onClick={() => handleQuickAction("update-rules")}
+                  disabled={loadingAction === "update-rules"}
                   className="flex items-center justify-center px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm bg-white dark:bg-gray-700 text-sm font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                 >
-                  <Users className="h-4 w-4 mr-2" />
-                  {loadingAction === "manage-users" ? t("common.loading") : "Manage Users"}
-                </button>
-                <button
-                  onClick={() => handleQuickAction("manage-offences")}
-                  disabled={loadingAction === "manage-offences"}
-                  className="flex items-center justify-center px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm bg-white dark:bg-gray-700 text-sm font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                >
-                  <Settings className="h-4 w-4 mr-2" />
-                  {loadingAction === "manage-offences" ? t("common.loading") : "Manage Offences"}
-                </button>
-                <button
-                  onClick={() => handleQuickAction("seed-database")}
-                  disabled={loadingAction === "seed-database"}
-                  className="flex items-center justify-center px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm bg-white dark:bg-gray-700 text-sm font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                >
-                  <Database className="h-4 w-4 mr-2" />
-                  {loadingAction === "seed-database" ? t("common.loading") : "Seed Database"}
+                  <AlertTriangle className="h-4 w-4 mr-2" />
+                  {loadingAction === "update-rules" ? t("common.loading") : t("admin.updateRules")}
                 </button>
                 <button
                   onClick={() => handleQuickAction("view-reports")}
@@ -326,8 +234,8 @@ export default function AdminDashboard() {
       </div>
 
       {/* Modals */}
-      <AddUserModal isOpen={showAddUserModal} onClose={() => setShowAddUserModal(false)} onSuccess={loadData} />
-      <AddStudentModal isOpen={showAddStudentModal} onClose={() => setShowAddStudentModal(false)} onSuccess={loadData} />
+      <AddUserModal isOpen={showAddUserModal} onClose={() => setShowAddUserModal(false)} />
+      <AddStudentModal isOpen={showAddStudentModal} onClose={() => setShowAddStudentModal(false)} />
 
       {/* About Footer */}
       <AboutFooter />

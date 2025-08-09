@@ -5,7 +5,7 @@ export interface Student {
   name: string
   email: string
   classId: string
-  parentIds: string[] // Array of parent user UIDs
+  parentId: string
   schoolId: string
   academicPerformance: {
     subjects: {
@@ -38,8 +38,6 @@ export interface Student {
     performance: string
     position?: string
   }[]
-  createdAt?: any
-  updatedAt?: any
 }
 
 export interface Class {
@@ -48,25 +46,16 @@ export interface Class {
   teacherId: string
   schoolId: string
   students: string[]
-  createdAt?: any
-  updatedAt?: any
 }
 
 export interface School {
   id: string
   name: string
   address: string
-  contact: {
-    email: string
-    phone: string
-  }
-  type: string
   disciplineRules: {
     rule: string
     pointsDeducted: number
   }[]
-  createdAt?: any
-  updatedAt?: any
 }
 
 // Sample data
@@ -76,8 +65,8 @@ export const SAMPLE_STUDENTS: Student[] = [
     name: "Sheila Mueni",
     email: "sheilamueni@gmail.com",
     classId: "class1",
-    parentIds: ["parent1"],
-    schoolId: "mwanacheck-high-school",
+    parentId: "3",
+    schoolId: "school1",
     academicPerformance: {
       subjects: [
         { name: "Mathematics", grade: "A", score: 85 },
@@ -128,22 +117,17 @@ export const SAMPLE_CLASSES: Class[] = [
   {
     id: "class1",
     name: "Form 4A",
-    teacherId: "teacher1",
-    schoolId: "mwanacheck-high-school",
+    teacherId: "2",
+    schoolId: "school1",
     students: ["student1"],
   },
 ]
 
 export const SAMPLE_SCHOOLS: School[] = [
   {
-    id: "mwanacheck-high-school",
+    id: "school1",
     name: "MwanaCheck High School",
     address: "Nairobi, Kenya",
-    contact: {
-      email: "info@mwanacheck.edu",
-      phone: "+254700123456"
-    },
-    type: "Secondary School",
     disciplineRules: [
       { rule: "Late to class", pointsDeducted: 5 },
       { rule: "Uniform violation", pointsDeducted: 3 },

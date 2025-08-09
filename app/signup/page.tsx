@@ -5,10 +5,7 @@ import type React from "react"
 import { useState } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
-import { GraduationCap, Eye, EyeOff, ArrowLeft } from 'lucide-react'
-import { firebaseCreateUserWithEmail } from "@/lib/firebase-auth-client"
-import { ensureSchoolByName, ensureUserProfile } from "@/lib/firestore"
-import type { UserRole } from "@/lib/models"
+import { GraduationCap, Eye, EyeOff, ArrowLeft } from "lucide-react"
 
 export default function SignUpPage() {
   const [formData, setFormData] = useState({
@@ -16,7 +13,7 @@ export default function SignUpPage() {
     email: "",
     password: "",
     confirmPassword: "",
-    role: "parent" as UserRole,
+    role: "parent",
     schoolName: "",
     agreeToTerms: false,
   })
@@ -40,40 +37,13 @@ export default function SignUpPage() {
       return
     }
 
-    try {
-      setLoading(true)
+    setLoading(true)
 
-      // Ensure a school exists and get schoolId (slug)
-      const schoolId = await ensureSchoolByName(formData.schoolName)
+    // Simulate API call
+    await new Promise((resolve) => setTimeout(resolve, 2000))
 
-      // Create user with Email/Password and seed profile
-      const cred = await firebaseCreateUserWithEmail(formData.name, formData.email, formData.password, {
-        role: formData.role,
-        schoolId,
-      })
-
-      if (!cred) {
-        setError("Sign up failed. Please check your credentials and try again.")
-        setLoading(false)
-        return
-      }
-
-      // Ensure user profile has role and schoolId
-      await ensureUserProfile(cred.user.uid, {
-        email: formData.email,
-        name: formData.name,
-        role: formData.role,
-        schoolId,
-      })
-
-      // Redirect to login
-      router.push("/login?message=Account created successfully! Please sign in.")
-    } catch (err: any) {
-      console.error(err)
-      setError(err?.message || "Something went wrong. Please try again.")
-    } finally {
-      setLoading(false)
-    }
+    // For demo purposes, redirect to login
+    router.push("/login?message=Account created successfully! Please sign in.")
   }
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
@@ -97,7 +67,7 @@ export default function SignUpPage() {
           <div className="text-center mb-8">
             <GraduationCap className="h-12 w-12 text-blue-600 mx-auto mb-4" />
             <h2 className="text-3xl font-bold text-gray-900 dark:text-white">Create Your Account</h2>
-            <p className="mt-2 text-gray-600 dark:text-gray-400">Join schools using MwanaCheck</p>
+            <p className="mt-2 text-gray-600 dark:text-gray-400">Join thousands of schools using MwanaCheck</p>
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-6">
@@ -165,7 +135,6 @@ export default function SignUpPage() {
                 value={formData.schoolName}
                 onChange={handleInputChange}
               />
-              <p className="text-xs text-gray-500 mt-1">We’ll create or link to this school automatically.</p>
             </div>
 
             <div>
@@ -188,7 +157,11 @@ export default function SignUpPage() {
                   className="absolute inset-y-0 right-0 pr-3 flex items-center"
                   onClick={() => setShowPassword(!showPassword)}
                 >
-                  {showPassword ? <EyeOff className="h-4 w-4 text-gray-400" /> : <Eye className="h-4 w-4 text-gray-400" />}
+                  {showPassword ? (
+                    <EyeOff className="h-4 w-4 text-gray-400" />
+                  ) : (
+                    <Eye className="h-4 w-4 text-gray-400" />
+                  )}
                 </button>
               </div>
             </div>
@@ -216,7 +189,11 @@ export default function SignUpPage() {
                   className="absolute inset-y-0 right-0 pr-3 flex items-center"
                   onClick={() => setShowConfirmPassword(!showConfirmPassword)}
                 >
-                  {showConfirmPassword ? <EyeOff className="h-4 w-4 text-gray-400" /> : <Eye className="h-4 w-4 text-gray-400" />}
+                  {showConfirmPassword ? (
+                    <EyeOff className="h-4 w-4 text-gray-400" />
+                  ) : (
+                    <Eye className="h-4 w-4 text-gray-400" />
+                  )}
                 </button>
               </div>
             </div>
@@ -231,7 +208,14 @@ export default function SignUpPage() {
                 onChange={handleInputChange}
               />
               <label htmlFor="agreeToTerms" className="ml-2 block text-sm text-gray-700 dark:text-gray-300">
-                I agree to the Terms of Service and Privacy Policy
+                I agree to the{" "}
+                <Link href="/terms" className="text-blue-600 hover:text-blue-700">
+                  Terms of Service
+                </Link>{" "}
+                and{" "}
+                <Link href="/privacy" className="text-blue-600 hover:text-blue-700">
+                  Privacy Policy
+                </Link>
               </label>
             </div>
 

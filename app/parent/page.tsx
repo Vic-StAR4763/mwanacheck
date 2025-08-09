@@ -1,366 +1,324 @@
 "use client"
 
-import { useState, useEffect } from "react"
-import { useAuth } from "@/lib/auth"
+import { useState } from "react"
 import { ProtectedRoute } from "@/components/protected-route"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { GraduationCap, Award, AlertTriangle, DollarSign, Calendar, Phone } from 'lucide-react'
-import { getStudentsByGuardian, getMeritsByStudent, getDisciplineByStudent, getPaymentsByStudent } from "@/lib/firestore"
-import type { Student, Merit, Discipline, Payment } from "@/lib/models"
+import { PaymentModal } from "@/components/modals/payment-modal"
+import { SAMPLE_STUDENTS } from "@/lib/data"
+import { BookOpen, Award, AlertTriangle, CreditCard, TrendingUp } from "lucide-react"
+import { useRouter } from "next/navigation"
+import { AboutFooter } from "@/components/about-footer"
 
 export default function ParentDashboard() {
-  const { user } = useAuth()
-  const [students, setStudents] = useState<Student[]>([])
-  const [selectedStudent, setSelectedStudent] = useState<Student | null>(null)
-  const [merits, setMerits] = useState<Merit[]>([])
-  const [disciplines, setDisciplines] = useState<Discipline[]>([])
-  const [payments, setPayments] = useState<Payment[]>([])
-  const [loading, setLoading] = useState(true)
+  const [showPaymentModal, setShowPaymentModal] = useState(false)
+  const [loadingAction, setLoadingAction] = useState<string | null>(null)
+  const router = useRouter()
 
-  useEffect(() => {
-    if (user?.uid && user?.schoolId) {
-      loadStudents()
+  // In real app, get student linked to this parent
+  const myChild = SAMPLE_STUDENTS[0]
+
+  const stats = [
+    {
+      title: "Current GPA",
+      value: myChild.academicPerformance.gpa.toFixed(1),
+      icon: TrendingUp,
+      color: "bg-blue-500",
+    },
+    {
+      title: "Discipline Points",
+      value: `${myChild.disciplinePoints}/100`,
+      icon: AlertTriangle,
+      color: myChild.disciplinePoints >= 80 ? "bg-green-500" : "bg-red-500",
+    },
+    {
+      title: "Merits Earned",
+      value: myChild.merits.length,
+      icon: Award,
+      color: "bg-yellow-500",
+    },
+    {
+      title: "Fee Balance",
+      value: `KES ${myChild.feeBalance.toLocaleString()}`,
+      icon: CreditCard,
+      color: "bg-purple-500",
+    },
+  ]
+
+  const handleQuickAction = async (action: string) => {
+    setLoadingAction(action)
+
+    switch (action) {
+      case "view-performance":
+        await new Promise((resolve) => setTimeout(resolve, 500))
+        router.push("/parent/performance")
+        break
+      case "view-discipline":
+        await new Promise((resolve) => setTimeout(resolve, 500))
+        router.push("/parent/discipline")
+        break
+      case "pay-fees":
+        setShowPaymentModal(true)
+        break
+      case "payment-plan":
+        await new Promise((resolve) => setTimeout(resolve, 500))
+        router.push("/parent/payments")
+        break
     }
-  }, [user?.uid, user?.schoolId])
 
-  useEffect(() => {
-    if (selectedStudent) {
-      loadStudentData(selectedStudent.id)
-    }
-  }, [selectedStudent])
-
-  const loadStudents = async () => {
-    if (!user?.uid || !user?.schoolId) return
-
-    try {
-      setLoading(true)
-      const studentList = await getStudentsByGuardian(user.uid, user.schoolId)
-      setStudents(studentList)
-      if (studentList.length > 0) {
-        setSelectedStudent(studentList[0])
-      }
-    } catch (error) {
-      console.error("Failed to load students:", error)
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  const loadStudentData = async (studentId: string) => {
-    try {
-      const [studentMerits, studentDisciplines, studentPayments] = await Promise.all([
-        getMeritsByStudent(studentId),
-        getDisciplineByStudent(studentId),
-        getPaymentsByStudent(studentId),
-      ])
-
-      setMerits(studentMerits)
-      setDisciplines(studentDisciplines)
-      setPayments(studentPayments)
-    } catch (error) {
-      console.error("Failed to load student data:", error)
-    }
-  }
-
-  const totalMeritPoints = merits.reduce((sum, merit) => sum + merit.points, 0)
-  const pendingPayments = payments.filter(p => p.status === "pending")
-  const overduePayments = payments.filter(p => p.status === "overdue")
-
-  if (loading) {
-    return (
-      <ProtectedRoute allowedRoles={["parent"]}>
-        <div className="container mx-auto p-6">
-          <div className="space-y-6">
-            <div className="h-8 bg-muted rounded w-64 animate-pulse" />
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              {[...Array(3)].map((_, i) => (
-                <Card key={i}>
-                  <CardHeader>
-                    <div className="h-4 bg-muted rounded w-32 animate-pulse" />
-                  </CardHeader>
-                  <CardContent>
-                    <div className="h-8 bg-muted rounded w-16 animate-pulse" />
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          </div>
-        </div>
-      </ProtectedRoute>
-    )
-  }
-
-  if (students.length === 0) {
-    return (
-      <ProtectedRoute allowedRoles={["parent"]}>
-        <div className="container mx-auto p-6">
-          <div className="text-center py-12">
-            <GraduationCap className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
-            <h2 className="text-2xl font-bold mb-2">No Students Found</h2>
-            <p className="text-muted-foreground">
-              You are not currently linked to any students. Please contact your school administrator.
-            </p>
-          </div>
-        </div>
-      </ProtectedRoute>
-    )
+    setLoadingAction(null)
   }
 
   return (
     <ProtectedRoute allowedRoles={["parent"]}>
-      <div className="container mx-auto p-6">
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold mb-2">Parent Dashboard</h1>
-          <p className="text-muted-foreground">Monitor your children's progress</p>
-        </div>
+      <div className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
+        <div className="px-4 py-6 sm:px-0">
+          <div className="mb-8">
+            <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Parent Dashboard</h1>
+            <p className="mt-2 text-gray-600 dark:text-gray-400">
+              Monitor {myChild.name}'s academic progress and activities
+            </p>
+          </div>
 
-        {/* Student Selector */}
-        {students.length > 1 && (
-          <Card className="mb-6">
-            <CardHeader>
-              <CardTitle>Select Student</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="flex gap-2 flex-wrap">
-                {students.map((student) => (
-                  <Button
-                    key={student.id}
-                    variant={selectedStudent?.id === student.id ? "default" : "outline"}
-                    onClick={() => setSelectedStudent(student)}
-                  >
-                    {student.name}
-                  </Button>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-        )}
-
-        {selectedStudent && (
-          <>
-            {/* Student Info Card */}
-            <Card className="mb-6">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <GraduationCap className="h-5 w-5" />
-                  {selectedStudent.name}
-                </CardTitle>
-                <CardDescription>
-                  {selectedStudent.grade} • {selectedStudent.class}
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <div className="flex items-center gap-2">
-                    <Calendar className="h-4 w-4 text-muted-foreground" />
-                    <span className="text-sm">
-                      Born: {selectedStudent.dateOfBirth || "Not specified"}
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Phone className="h-4 w-4 text-muted-foreground" />
-                    <span className="text-sm">
-                      Phone: {selectedStudent.phone || "Not specified"}
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm">
-                      Emergency: {selectedStudent.emergencyContact || "Not specified"}
-                    </span>
+          {/* Stats Grid */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+            {stats.map((stat) => {
+              const Icon = stat.icon
+              return (
+                <div key={stat.title} className="bg-white dark:bg-gray-800 overflow-hidden shadow rounded-lg">
+                  <div className="p-5">
+                    <div className="flex items-center">
+                      <div className="flex-shrink-0">
+                        <div className={`${stat.color} p-3 rounded-md`}>
+                          <Icon className="h-6 w-6 text-white" />
+                        </div>
+                      </div>
+                      <div className="ml-5 w-0 flex-1">
+                        <dl>
+                          <dt className="text-sm font-medium text-gray-500 dark:text-gray-400 truncate">
+                            {stat.title}
+                          </dt>
+                          <dd className="text-2xl font-semibold text-gray-900 dark:text-white">{stat.value}</dd>
+                        </dl>
+                      </div>
+                    </div>
                   </div>
                 </div>
-              </CardContent>
-            </Card>
+              )
+            })}
+          </div>
 
-            {/* Stats Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-              <Card>
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">Merit Points</CardTitle>
-                  <Award className="h-4 w-4 text-muted-foreground" />
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold text-green-600">{totalMeritPoints}</div>
-                  <p className="text-xs text-muted-foreground">
-                    From {merits.length} awards
-                  </p>
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">Discipline</CardTitle>
-                  <AlertTriangle className="h-4 w-4 text-muted-foreground" />
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold text-orange-600">{disciplines.length}</div>
-                  <p className="text-xs text-muted-foreground">
-                    Total incidents
-                  </p>
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">Pending Payments</CardTitle>
-                  <DollarSign className="h-4 w-4 text-muted-foreground" />
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold text-blue-600">{pendingPayments.length}</div>
-                  <p className="text-xs text-muted-foreground">
-                    ${pendingPayments.reduce((sum, p) => sum + p.amount, 0)}
-                  </p>
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">Overdue</CardTitle>
-                  <AlertTriangle className="h-4 w-4 text-muted-foreground" />
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold text-red-600">{overduePayments.length}</div>
-                  <p className="text-xs text-muted-foreground">
-                    ${overduePayments.reduce((sum, p) => sum + p.amount, 0)}
-                  </p>
-                </CardContent>
-              </Card>
+          {/* Academic Performance & Recent Activities */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div className="bg-white dark:bg-gray-800 shadow rounded-lg">
+              <div className="px-4 py-5 sm:p-6">
+                <h3 className="text-lg leading-6 font-medium text-gray-900 dark:text-white mb-4">
+                  Academic Performance
+                </h3>
+                <div className="space-y-4">
+                  {myChild.academicPerformance.subjects.map((subject, index) => (
+                    <div
+                      key={index}
+                      className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700 rounded-lg"
+                    >
+                      <div className="flex items-center space-x-3">
+                        <div className="flex-shrink-0">
+                          <div className="h-8 w-8 bg-blue-100 rounded-full flex items-center justify-center">
+                            <BookOpen className="h-4 w-4 text-blue-600" />
+                          </div>
+                        </div>
+                        <div>
+                          <p className="text-sm font-medium text-gray-900 dark:text-white">{subject.name}</p>
+                          <p className="text-sm text-gray-500 dark:text-gray-400">Score: {subject.score}%</p>
+                        </div>
+                      </div>
+                      <span
+                        className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                          subject.score >= 80
+                            ? "bg-green-100 text-green-800 dark:bg-green-700 dark:text-green-100"
+                            : subject.score >= 70
+                              ? "bg-yellow-100 text-yellow-800 dark:bg-yellow-700 dark:text-yellow-100"
+                              : "bg-red-100 text-red-800 dark:bg-red-700 dark:text-red-100"
+                        }`}
+                      >
+                        {subject.grade}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
             </div>
 
-            {/* Detailed Information Tabs */}
-            <Tabs defaultValue="merits" className="space-y-4">
-              <TabsList>
-                <TabsTrigger value="merits">Merits & Awards</TabsTrigger>
-                <TabsTrigger value="discipline">Discipline</TabsTrigger>
-                <TabsTrigger value="payments">Payments</TabsTrigger>
-              </TabsList>
+            <div className="bg-white dark:bg-gray-800 shadow rounded-lg">
+              <div className="px-4 py-5 sm:p-6">
+                <h3 className="text-lg leading-6 font-medium text-gray-900 dark:text-white mb-4">
+                  Recent Merits & Activities
+                </h3>
+                <div className="space-y-4">
+                  {myChild.merits.map((merit) => (
+                    <div key={merit.id} className="flex items-start space-x-3">
+                      <div className="flex-shrink-0">
+                        <div className="h-8 w-8 bg-green-100 rounded-full flex items-center justify-center">
+                          <Award className="h-4 w-4 text-green-600" />
+                        </div>
+                      </div>
+                      <div className="flex-1">
+                        <p className="text-sm font-medium text-gray-900 dark:text-white">{merit.title}</p>
+                        <p className="text-sm text-gray-500 dark:text-gray-400">{merit.description}</p>
+                        <div className="flex items-center justify-between mt-1">
+                          <p className="text-xs text-gray-400 dark:text-gray-500">
+                            Awarded by {merit.awardedBy} on {new Date(merit.date).toLocaleDateString()}
+                          </p>
+                          <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800 dark:bg-green-700 dark:text-green-100">
+                            +{merit.points} pts
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
 
-              <TabsContent value="merits">
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Recent Merits & Awards</CardTitle>
-                    <CardDescription>
-                      Positive recognition for {selectedStudent.name}
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    {merits.length === 0 ? (
-                      <div className="text-center py-8">
-                        <Award className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                        <p className="text-muted-foreground">No merits recorded yet</p>
+                  {myChild.disciplineHistory.map((incident) => (
+                    <div key={incident.id} className="flex items-start space-x-3">
+                      <div className="flex-shrink-0">
+                        <div className="h-8 w-8 bg-red-100 rounded-full flex items-center justify-center">
+                          <AlertTriangle className="h-4 w-4 text-red-600" />
+                        </div>
                       </div>
-                    ) : (
-                      <div className="space-y-4">
-                        {merits.map((merit) => (
-                          <div key={merit.id} className="flex items-start justify-between p-4 border rounded-lg">
-                            <div className="flex-1">
-                              <div className="flex items-center gap-2 mb-2">
-                                <Badge variant="secondary">{merit.type}</Badge>
-                                <span className="text-sm text-muted-foreground">{merit.date}</span>
-                              </div>
-                              <p className="font-medium mb-1">{merit.description}</p>
-                            </div>
-                            <div className="text-right">
-                              <div className="text-lg font-bold text-green-600">+{merit.points}</div>
-                              <div className="text-xs text-muted-foreground">points</div>
-                            </div>
-                          </div>
-                        ))}
+                      <div className="flex-1">
+                        <p className="text-sm font-medium text-gray-900 dark:text-white">Discipline Report</p>
+                        <p className="text-sm text-gray-500 dark:text-gray-400">{incident.incident}</p>
+                        <div className="flex items-center justify-between mt-1">
+                          <p className="text-xs text-gray-400 dark:text-gray-500">
+                            Reported by {incident.reportedBy} on {new Date(incident.date).toLocaleDateString()}
+                          </p>
+                          <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800 dark:bg-red-700 dark:text-red-100">
+                            -{incident.pointsDeducted} pts
+                          </span>
+                        </div>
                       </div>
-                    )}
-                  </CardContent>
-                </Card>
-              </TabsContent>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
 
-              <TabsContent value="discipline">
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Discipline Records</CardTitle>
-                    <CardDescription>
-                      Behavioral incidents for {selectedStudent.name}
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    {disciplines.length === 0 ? (
-                      <div className="text-center py-8">
-                        <AlertTriangle className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                        <p className="text-muted-foreground">No discipline records</p>
+          {/* Co-curricular Activities & Fee Information */}
+          <div className="mt-6 grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div className="bg-white dark:bg-gray-800 shadow rounded-lg">
+              <div className="px-4 py-5 sm:p-6">
+                <h3 className="text-lg leading-6 font-medium text-gray-900 dark:text-white mb-4">
+                  Co-curricular Activities
+                </h3>
+                <div className="space-y-3">
+                  {myChild.coCurrenticular.map((activity, index) => (
+                    <div
+                      key={index}
+                      className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700 rounded-lg"
+                    >
+                      <div>
+                        <p className="text-sm font-medium text-gray-900 dark:text-white">{activity.activity}</p>
+                        {activity.position && (
+                          <p className="text-sm text-gray-500 dark:text-gray-400">Position: {activity.position}</p>
+                        )}
                       </div>
-                    ) : (
-                      <div className="space-y-4">
-                        {disciplines.map((discipline) => (
-                          <div key={discipline.id} className="p-4 border rounded-lg">
-                            <div className="flex items-center gap-2 mb-2">
-                              <Badge variant={discipline.severity === "high" ? "destructive" : discipline.severity === "medium" ? "default" : "secondary"}>
-                                {discipline.type}
-                              </Badge>
-                              <Badge variant="outline">{discipline.severity} severity</Badge>
-                              <span className="text-sm text-muted-foreground">{discipline.date}</span>
-                              {discipline.resolved && (
-                                <Badge variant="secondary">Resolved</Badge>
-                              )}
-                            </div>
-                            <p className="font-medium mb-2">{discipline.description}</p>
-                            <p className="text-sm text-muted-foreground">Action: {discipline.action}</p>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </CardContent>
-                </Card>
-              </TabsContent>
+                      <span
+                        className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                          activity.performance === "Excellent"
+                            ? "bg-green-100 text-green-800 dark:bg-green-700 dark:text-green-100"
+                            : "bg-blue-100 text-blue-800 dark:bg-blue-700 dark:text-blue-100"
+                        }`}
+                      >
+                        {activity.performance}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
 
-              <TabsContent value="payments">
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Payment History</CardTitle>
-                    <CardDescription>
-                      Financial records for {selectedStudent.name}
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    {payments.length === 0 ? (
-                      <div className="text-center py-8">
-                        <DollarSign className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                        <p className="text-muted-foreground">No payment records</p>
-                      </div>
-                    ) : (
-                      <div className="space-y-4">
-                        {payments.map((payment) => (
-                          <div key={payment.id} className="flex items-center justify-between p-4 border rounded-lg">
-                            <div className="flex-1">
-                              <div className="flex items-center gap-2 mb-2">
-                                <Badge variant="outline">{payment.type}</Badge>
-                                <Badge variant={
-                                  payment.status === "paid" ? "secondary" :
-                                  payment.status === "overdue" ? "destructive" : "default"
-                                }>
-                                  {payment.status}
-                                </Badge>
-                              </div>
-                              <p className="font-medium mb-1">{payment.description}</p>
-                              <p className="text-sm text-muted-foreground">
-                                Due: {payment.dueDate}
-                                {payment.paidDate && ` • Paid: ${payment.paidDate}`}
-                              </p>
-                            </div>
-                            <div className="text-right">
-                              <div className="text-lg font-bold">${payment.amount}</div>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </CardContent>
-                </Card>
-              </TabsContent>
-            </Tabs>
-          </>
-        )}
+            <div className="bg-white dark:bg-gray-800 shadow rounded-lg">
+              <div className="px-4 py-5 sm:p-6">
+                <h3 className="text-lg leading-6 font-medium text-gray-900 dark:text-white mb-4">Fee Information</h3>
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between p-4 bg-red-50 dark:bg-red-700 rounded-lg border border-red-200">
+                    <div>
+                      <p className="text-sm font-medium text-red-900 dark:text-red-100">Outstanding Balance</p>
+                      <p className="text-2xl font-bold text-red-900 dark:text-red-100">
+                        KES {myChild.feeBalance.toLocaleString()}
+                      </p>
+                    </div>
+                    <CreditCard className="h-8 w-8 text-red-600" />
+                  </div>
+
+                  <div className="space-y-2">
+                    <button
+                      onClick={() => handleQuickAction("pay-fees")}
+                      disabled={loadingAction === "pay-fees"}
+                      className="w-full flex items-center justify-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-green-600 hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors dark:bg-green-500 dark:hover:bg-green-600"
+                    >
+                      <CreditCard className="h-4 w-4 mr-2" />
+                      {loadingAction === "pay-fees" ? "Loading..." : "Pay via M-Pesa"}
+                    </button>
+                    <button
+                      onClick={() => handleQuickAction("payment-plan")}
+                      disabled={loadingAction === "payment-plan"}
+                      className="w-full flex items-center justify-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600"
+                    >
+                      {loadingAction === "payment-plan" ? "Loading..." : "Set Payment Plan"}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Quick Actions */}
+          <div className="mt-8 bg-white dark:bg-gray-800 shadow rounded-lg">
+            <div className="px-4 py-5 sm:p-6">
+              <h3 className="text-lg leading-6 font-medium text-gray-900 dark:text-white mb-4">Quick Actions</h3>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                <button
+                  onClick={() => handleQuickAction("view-performance")}
+                  disabled={loadingAction === "view-performance"}
+                  className="flex items-center justify-center px-4 py-2 border border-gray-300 rounded-md shadow-sm bg-white text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600"
+                >
+                  <BookOpen className="h-4 w-4 mr-2" />
+                  {loadingAction === "view-performance" ? "Loading..." : "View Performance"}
+                </button>
+                <button
+                  onClick={() => handleQuickAction("view-discipline")}
+                  disabled={loadingAction === "view-discipline"}
+                  className="flex items-center justify-center px-4 py-2 border border-gray-300 rounded-md shadow-sm bg-white text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600"
+                >
+                  <AlertTriangle className="h-4 w-4 mr-2" />
+                  {loadingAction === "view-discipline" ? "Loading..." : "View Discipline"}
+                </button>
+                <button
+                  onClick={() => handleQuickAction("pay-fees")}
+                  disabled={loadingAction === "pay-fees"}
+                  className="flex items-center justify-center px-4 py-2 border border-gray-300 rounded-md shadow-sm bg-white text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600"
+                >
+                  <CreditCard className="h-4 w-4 mr-2" />
+                  {loadingAction === "pay-fees" ? "Loading..." : "Pay Fees"}
+                </button>
+                <button
+                  onClick={() => handleQuickAction("payment-plan")}
+                  disabled={loadingAction === "payment-plan"}
+                  className="flex items-center justify-center px-4 py-2 border border-gray-300 rounded-md shadow-sm bg-white text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600"
+                >
+                  <TrendingUp className="h-4 w-4 mr-2" />
+                  {loadingAction === "payment-plan" ? "Loading..." : "Payment Plan"}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
+
+      {/* Payment Modal */}
+      <PaymentModal isOpen={showPaymentModal} onClose={() => setShowPaymentModal(false)} amount={myChild.feeBalance} />
+
+      {/* About Footer */}
+      <AboutFooter />
     </ProtectedRoute>
   )
 }

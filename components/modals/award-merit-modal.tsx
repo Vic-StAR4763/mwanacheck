@@ -2,23 +2,16 @@
 
 import type React from "react"
 
-import { useState, useEffect } from "react"
-import { X, Award, Loader2 } from 'lucide-react'
-import { useAuth } from "@/lib/auth"
-import { createMerit, getStudentsBySchool } from "@/lib/firestore"
-import type { StudentRecord } from "@/lib/models"
+import { useState } from "react"
+import { X, Award, Loader2 } from "lucide-react"
 
 interface AwardMeritModalProps {
   isOpen: boolean
   onClose: () => void
-  onSuccess?: () => void
 }
 
-export function AwardMeritModal({ isOpen, onClose, onSuccess }: AwardMeritModalProps) {
-  const { user } = useAuth()
+export function AwardMeritModal({ isOpen, onClose }: AwardMeritModalProps) {
   const [loading, setLoading] = useState(false)
-  const [error, setError] = useState("")
-  const [students, setStudents] = useState<StudentRecord[]>([])
   const [formData, setFormData] = useState({
     studentId: "",
     title: "",
@@ -26,56 +19,16 @@ export function AwardMeritModal({ isOpen, onClose, onSuccess }: AwardMeritModalP
     points: "",
   })
 
-  useEffect(() => {
-    if (isOpen && user?.schoolId) {
-      loadStudents()
-    }
-  }, [isOpen, user?.schoolId])
-
-  const loadStudents = async () => {
-    if (!user?.schoolId) return
-    try {
-      const schoolStudents = await getStudentsBySchool(user.schoolId)
-      setStudents(schoolStudents)
-    } catch (err) {
-      console.error("Failed to load students:", err)
-    }
-  }
-
   if (!isOpen) return null
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!user) return
-    
     setLoading(true)
-    setError("")
 
-    try {
-      const selectedStudent = students.find(s => s.id === formData.studentId)
-      if (!selectedStudent) {
-        throw new Error("Student not found")
-      }
+    await new Promise((resolve) => setTimeout(resolve, 2000))
 
-      await createMerit({
-        studentId: formData.studentId,
-        schoolId: user.schoolId,
-        title: formData.title,
-        description: formData.description,
-        points: parseInt(formData.points),
-        awardedBy: user.uid,
-        awardedByName: user.name,
-        date: new Date().toISOString(),
-      })
-
-      onSuccess?.()
-      onClose()
-      setFormData({ studentId: "", title: "", description: "", points: "" })
-    } catch (err: any) {
-      setError(err.message || "Failed to award merit")
-    } finally {
-      setLoading(false)
-    }
+    setLoading(false)
+    onClose()
   }
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
@@ -121,11 +74,9 @@ export function AwardMeritModal({ isOpen, onClose, onSuccess }: AwardMeritModalP
               onChange={handleInputChange}
             >
               <option value="">Select Student</option>
-              {students.map((student) => (
-                <option key={student.id} value={student.id}>
-                  {student.name}
-                </option>
-              ))}
+              <option value="student1">Alice Student</option>
+              <option value="student2">Bob Johnson</option>
+              <option value="student3">Carol Smith</option>
             </select>
           </div>
 
@@ -183,12 +134,6 @@ export function AwardMeritModal({ isOpen, onClose, onSuccess }: AwardMeritModalP
               onChange={handleInputChange}
             />
           </div>
-
-          {error && (
-            <div className="text-red-600 text-sm bg-red-50 dark:bg-red-900/20 p-3 rounded-md">
-              {error}
-            </div>
-          )}
 
           <div className="flex space-x-3 pt-4">
             <button
