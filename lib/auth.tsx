@@ -1,186 +1,181 @@
 "use client"
 
 import type React from "react"
-import { createContext, useContext, useState, useEffect } from "react"
-import { useRouter } from "next/navigation"
-
-// Update the UserRole type to include guest
-export type UserRole = "admin" | "teacher" | "parent" | "student" | "guest"
-
-export interface User {
-  id: string
-  email: string
-  name: string
-  role: UserRole
-  schoolId?: string
-  studentId?: string // For parents - which student they're linked to
-  classId?: string // For teachers - which class they teach
-}
+import { createContext, useContext, useEffect, useState } from "react"
+import type { User as SupabaseUser } from "@supabase/supabase-js"
+import { supabase } from "./supabase"
+import type { User } from "./supabase"
 
 interface AuthContextType {
   user: User | null
-  login: (email: string, password: string) => Promise<boolean>
-  logout: () => void
+  supabaseUser: SupabaseUser | null
   loading: boolean
-  initialized: boolean
+  signIn: (email: string, password: string) => Promise<{ error: any }>
+  signUp: (email: string, password: string, userData: Partial<User>) => Promise<{ error: any }>
+  signOut: () => Promise<void>
+  updateProfile: (userData: Partial<User>) => Promise<{ error: any }>
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
-// Sample users for demonstration
-const SAMPLE_USERS: User[] = [
-  {
-    id: "1",
-    email: "admin@mwanacheck.com",
-    name: "John Admin",
-    role: "admin",
-    schoolId: "school1",
-  },
-  {
-    id: "2",
-    email: "teacher@mwanacheck.com",
-    name: "Mary Teacher",
-    role: "teacher",
-    schoolId: "school1",
-    classId: "class1",
-  },
-  {
-    id: "3",
-    email: "parent@mwanacheck.com",
-    name: "David Parent",
-    role: "parent",
-    schoolId: "school1",
-    studentId: "student1",
-  },
-  {
-    id: "4",
-    email: "student@mwanacheck.com",
-    name: "Alice Student",
-    role: "student",
-    schoolId: "school1",
-  },
-]
-
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
-  const [loading, setLoading] = useState(false)
-  const [initialized, setInitialized] = useState(false)
-  const router = useRouter()
-  const context = useContext(AuthContext)
+  const [supabaseUser, setSupabaseUser] = useState<SupabaseUser | null>(null)
+  const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    // Check for stored auth token
-    const initializeAuth = async () => {
+    // Get initial session
+    const getInitialSession = async () => {
       try {
-        const storedUser = localStorage.getItem("mwanacheck_user")
-        if (storedUser) {
-          const parsedUser = JSON.parse(storedUser)
-          setUser(parsedUser)
+        const {
+          data: { session },
+        } = await supabase.auth.getSession()
+
+        if (session?.user) {
+          setSupabaseUser(session.user)
+          await fetchUserProfile(session.user.id)
         }
       } catch (error) {
-        console.error("Error parsing stored user:", error)
-        localStorage.removeItem("mwanacheck_user")
+        console.error("Error getting initial session:", error)
       } finally {
-        setInitialized(true)
+        setLoading(false)
       }
     }
 
-    initializeAuth()
+    getInitialSession()
+
+    // Listen for auth changes
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange(async (event, session) => {
+      if (session?.user) {
+        setSupabaseUser(session.user)
+        await fetchUserProfile(session.user.id)
+      } else {
+        setSupabaseUser(null)
+        setUser(null)
+      }
+      setLoading(false)
+    })
+
+    return () => subscription.unsubscribe()
   }, [])
 
-  const login = async (email: string, password: string): Promise<boolean> => {
-    setLoading(true)
-
+  const fetchUserProfile = async (userId: string) => {
     try {
-      // Simulate API call
-      await new Promise((resolve) => setTimeout(resolve, 1000))
+      const { data, error } = await supabase.from("users").select("*").eq("id", userId).single()
 
-      const foundUser = SAMPLE_USERS.find((u) => u.email === email)
-
-      if (foundUser && password === "password123") {
-        setUser(foundUser)
-        localStorage.setItem("mwanacheck_user", JSON.stringify(foundUser))
-
-        // Redirect based on role
-        switch (foundUser.role) {
-          case "admin":
-            router.push("/admin")
-            break
-          case "teacher":
-            router.push("/teacher")
-            break
-          case "parent":
-            router.push("/parent")
-            break
-          case "student":
-            router.push("/student")
-            break
-        }
-
-        setLoading(false)
-        return true
+      if (error) {
+        console.error("Error fetching user profile:", error)
+        return
       }
 
-      setLoading(false)
-      return false
+      setUser(data)
     } catch (error) {
-      console.error("Login error:", error)
-      setLoading(false)
-      return false
+      console.error("Error fetching user profile:", error)
     }
   }
 
-  const logout = () => {
-    setUser(null)
-    localStorage.removeItem("mwanacheck_user")
-    router.push("/login")
+  const signIn = async (email: string, password: string) => {
+    try {
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      })
+
+      if (error) {
+        return { error }
+      }
+
+      return { error: null }
+    } catch (error) {
+      return { error }
+    }
   }
 
-  // Always provide a valid context value
-  const contextValue: AuthContextType = {
+  const signUp = async (email: string, password: string, userData: Partial<User>) => {
+    try {
+      const { data, error } = await supabase.auth.signUp({
+        email,
+        password,
+      })
+
+      if (error) {
+        return { error }
+      }
+
+      if (data.user) {
+        // Create user profile
+        const { error: profileError } = await supabase.from("users").insert([
+          {
+            id: data.user.id,
+            email: data.user.email!,
+            ...userData,
+          },
+        ])
+
+        if (profileError) {
+          return { error: profileError }
+        }
+      }
+
+      return { error: null }
+    } catch (error) {
+      return { error }
+    }
+  }
+
+  const signOut = async () => {
+    try {
+      await supabase.auth.signOut()
+      setUser(null)
+      setSupabaseUser(null)
+    } catch (error) {
+      console.error("Error signing out:", error)
+    }
+  }
+
+  const updateProfile = async (userData: Partial<User>) => {
+    try {
+      if (!user) {
+        return { error: new Error("No user logged in") }
+      }
+
+      const { data, error } = await supabase
+        .from("users")
+        .update({ ...userData, updated_at: new Date().toISOString() })
+        .eq("id", user.id)
+        .select()
+        .single()
+
+      if (error) {
+        return { error }
+      }
+
+      setUser(data)
+      return { error: null }
+    } catch (error) {
+      return { error }
+    }
+  }
+
+  const value = {
     user,
-    login,
-    logout,
+    supabaseUser,
     loading,
-    initialized,
+    signIn,
+    signUp,
+    signOut,
+    updateProfile,
   }
 
-  return <AuthContext.Provider value={contextValue}>{children}</AuthContext.Provider>
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
 }
 
 export function useAuth() {
   const context = useContext(AuthContext)
-
-  // If context is undefined, provide a safe fallback instead of throwing
   if (context === undefined) {
-    console.warn("useAuth called outside of AuthProvider, providing fallback")
-    return {
-      user: null,
-      login: async () => false,
-      logout: () => {},
-      loading: false,
-      initialized: true,
-    }
+    throw new Error("useAuth must be used within an AuthProvider")
   }
-
-  return context
-}
-
-// Safe hook that can be used anywhere without context
-export function useSafeAuth() {
-  const context = useContext(AuthContext)
-
-  // If context is undefined, provide a safe fallback instead of throwing
-  if (context === undefined) {
-    console.warn("Auth context not available, using fallback")
-    return {
-      user: null,
-      login: async () => false,
-      logout: () => {},
-      loading: false,
-      initialized: true,
-    }
-  }
-
   return context
 }
