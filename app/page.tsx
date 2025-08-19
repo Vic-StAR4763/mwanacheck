@@ -22,6 +22,11 @@ import {
   Globe,
   Zap,
   Target,
+  Lightbulb,
+  Palette,
+  Monitor,
+  MessageCircle,
+  BarChart,
 } from "lucide-react"
 
 export default function HomePage() {
@@ -468,9 +473,9 @@ export default function HomePage() {
             <Globe className="h-16 w-16 text-blue-200 mx-auto mb-6" />
             <h2 className="text-3xl md:text-5xl font-bold mb-6">About MwanaCheck</h2>
             <p className="text-xl text-blue-100 max-w-4xl mx-auto leading-relaxed">
-              Founded by Victor Mane and team, MwanaCheck was born from the belief that every student deserves
+              Founded by Victor Manee and team, MwanaCheck was born from the belief that every student deserves
               personalized attention and support. Our platform bridges the gap between schools, parents, and students,
-              creating a collaborative ecosystem focused on academic success and character development. Special appreciation to Kelvin Njoroge.
+              creating a collaborative ecosystem focused on academic success and character development.
             </p>
           </div>
 
@@ -502,6 +507,136 @@ export default function HomePage() {
               Start Your Journey
               <ArrowRight className="ml-2 h-5 w-5" />
             </Link>
+          </div>
+        </div>
+      </section>
+
+      {/* Meet the Founders Section */}
+      <section className="py-20 bg-gradient-to-br from-gray-50 to-blue-50 dark:from-gray-900 dark:to-gray-800">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="text-center mb-16">
+            <h2 className="text-3xl md:text-5xl font-bold text-gray-900 dark:text-white mb-4">
+              Meet the <span className="text-blue-600">Founders</span>
+            </h2>
+            <p className="text-xl text-gray-600 dark:text-gray-400 max-w-3xl mx-auto">
+              The visionary minds behind MwanaCheck, dedicated to transforming education through technology and
+              innovation.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+            {[
+              {
+                name: "Victor Manee",
+                role: "CEO & Founder",
+                tagline: "Visionary leader passionate about education and technology innovation",
+                image: "/victor-manee.jpg",
+                icon: Lightbulb,
+                color: "from-blue-500 to-blue-600",
+              },
+              {
+                name: "Isaac Maloba",
+                role: "UI/UX Designer & Founder",
+                tagline: "Creative designer crafting intuitive experiences for educational excellence",
+                image: "/placeholder-user.jpg",
+                icon: Palette,
+                color: "from-purple-500 to-purple-600",
+              },
+              {
+                name: "Darren Fadhili",
+                role: "Front-End Developer & Co-Founder",
+                tagline: "Technical innovator building seamless user interfaces for modern education",
+                image: "/placeholder-user.jpg",
+                icon: Monitor,
+                color: "from-green-500 to-green-600",
+              },
+              {
+                name: "Andreane Kaniaru",
+                role: "Chief Financial Officer & Co-Founder",
+                tagline:
+                  "Financial strategist ensuring sustainable growth and resource optimization for educational excellence",
+                image: "/andreane-kaniaru-new.jpg",
+                icon: CreditCard,
+                color: "from-orange-500 to-orange-600",
+              },
+              {
+                name: "James Gichaga",
+                role: "Chief Consultant & Co-Founder",
+                tagline: "Strategic advisor guiding educational transformation and institutional growth",
+                image: "/placeholder-user.jpg",
+                icon: MessageCircle,
+                color: "from-pink-500 to-pink-600",
+              },
+              {
+                name: "Jackson Kagema",
+                role: "Market Officer & Co-Founder",
+                tagline: "Market strategist expanding MwanaCheck's reach across educational institutions",
+                image: "/jackson-kagema.jpg",
+                icon: BarChart,
+                color: "from-indigo-500 to-indigo-600",
+              },
+            ].map((founder, index) => (
+              <div
+                key={index}
+                className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg hover:shadow-2xl dark:shadow-gray-900/25 transition-all duration-300 transform hover:-translate-y-2 overflow-hidden group"
+              >
+                {/* Full Photo */}
+                <div className="relative h-64 overflow-hidden">
+                  <Image
+                    src={founder.image || "/placeholder.svg"}
+                    alt={founder.name}
+                    width={400}
+                    height={256}
+                    className={`w-full h-full transition-transform duration-500 ${
+                      founder.name === "Andreane Kaniaru"
+                        ? "object-cover object-center scale-130 group-hover:scale-120"
+                        : "object-cover object-top scale-110 group-hover:scale-100"
+                    }`}
+                  />
+                  {/* Gradient overlay */}
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-transparent"></div>
+                  {/* Icon overlay */}
+                  <div
+                    className={`absolute bottom-4 right-4 w-12 h-12 bg-gradient-to-br ${founder.color} rounded-full flex items-center justify-center shadow-lg`}
+                  >
+                    <founder.icon className="h-6 w-6 text-white" />
+                  </div>
+                </div>
+
+                {/* Content */}
+                <div className="p-6">
+                  {/* Name and Role */}
+                  <div className="mb-4">
+                    <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-1 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
+                      {founder.name}
+                    </h3>
+                    <p
+                      className={`text-sm font-medium bg-gradient-to-r ${founder.color} bg-clip-text text-transparent`}
+                    >
+                      {founder.role}
+                    </p>
+                  </div>
+
+                  {/* Tagline */}
+                  <p className="text-gray-600 dark:text-gray-400 text-sm leading-relaxed mb-4">{founder.tagline}</p>
+
+                  {/* Decorative element */}
+                  <div className="pt-4 border-t border-gray-100 dark:border-gray-700">
+                    <div
+                      className={`w-12 h-1 bg-gradient-to-r ${founder.color} rounded-full opacity-60 group-hover:opacity-100 transition-opacity`}
+                    ></div>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Additional info */}
+          <div className="text-center mt-12">
+            <p className="text-gray-600 dark:text-gray-400 max-w-2xl mx-auto">
+              Our diverse team combines expertise in education, technology, design, and business strategy to create
+              solutions that truly make a difference in students' lives across Africa and beyond.
+            </p>
           </div>
         </div>
       </section>

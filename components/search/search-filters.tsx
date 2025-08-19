@@ -1,177 +1,228 @@
 "use client"
 
 import { useState } from "react"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Slider } from "@/components/ui/slider"
-import { X } from "lucide-react"
-import type { SearchFiltersType } from "@/lib/search"
+import type { SearchFilters } from "@/lib/search"
+import { X, GraduationCap, Target, Users, Building } from "lucide-react"
 
 interface SearchFiltersProps {
-  filters: SearchFiltersType
-  onFiltersChange: (filters: SearchFiltersType) => void
-  onClearFilters: () => void
+  filters: SearchFilters
+  onFiltersChange: (filters: SearchFilters) => void
+  onClear: () => void
 }
 
-export function SearchFilters({ filters, onFiltersChange, onClearFilters }: SearchFiltersProps) {
-  const [localFilters, setLocalFilters] = useState<SearchFiltersType>(filters)
+export function SearchFiltersComponent({ filters, onFiltersChange, onClear }: SearchFiltersProps) {
+  const [isExpanded, setIsExpanded] = useState(false)
 
-  const handleFilterChange = (key: keyof SearchFiltersType, value: any) => {
-    const newFilters = { ...localFilters, [key]: value }
-    setLocalFilters(newFilters)
-    onFiltersChange(newFilters)
+  const handleTypeChange = (type: string, checked: boolean) => {
+    const currentTypes = filters.type || []
+    const newTypes = checked ? [...currentTypes, type] : currentTypes.filter((t) => t !== type)
+
+    onFiltersChange({ ...filters, type: newTypes })
   }
 
-  const handleClearFilters = () => {
-    setLocalFilters({})
-    onClearFilters()
+  const handleGpaRangeChange = (field: "min" | "max", value: string) => {
+    const numValue = Number.parseFloat(value) || 0
+    const currentRange = filters.gpaRange || { min: 0, max: 4 }
+
+    onFiltersChange({
+      ...filters,
+      gpaRange: { ...currentRange, [field]: numValue },
+    })
   }
 
-  const hasActiveFilters = Object.keys(filters).length > 0
+  const handleDisciplineRangeChange = (field: "min" | "max", value: string) => {
+    const numValue = Number.parseInt(value) || 0
+    const currentRange = filters.disciplineRange || { min: 0, max: 100 }
+
+    onFiltersChange({
+      ...filters,
+      disciplineRange: { ...currentRange, [field]: numValue },
+    })
+  }
+
+  const handleClassChange = (className: string, checked: boolean) => {
+    const currentClasses = filters.class || []
+    const newClasses = checked ? [...currentClasses, className] : currentClasses.filter((c) => c !== className)
+
+    onFiltersChange({ ...filters, class: newClasses })
+  }
+
+  const handleStatusChange = (status: string, checked: boolean) => {
+    const currentStatuses = filters.status || []
+    const newStatuses = checked ? [...currentStatuses, status] : currentStatuses.filter((s) => s !== status)
+
+    onFiltersChange({ ...filters, status: newStatuses })
+  }
+
+  const hasActiveFilters = () => {
+    return (
+      (filters.type && filters.type.length > 0) ||
+      filters.gpaRange ||
+      filters.disciplineRange ||
+      (filters.class && filters.class.length > 0) ||
+      (filters.status && filters.status.length > 0)
+    )
+  }
 
   return (
-    <Card className="w-full">
-      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
-        <CardTitle className="text-lg font-semibold">Search Filters</CardTitle>
-        {hasActiveFilters && (
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={handleClearFilters}
-            className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+    <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4">
+      <div className="flex items-center justify-between mb-4">
+        <h3 className="text-lg font-medium text-gray-900 dark:text-white flex items-center">
+          <Target className="h-5 w-5 mr-2" />
+          Search Filters
+        </h3>
+        <div className="flex items-center space-x-2">
+          {hasActiveFilters() && (
+            <button
+              onClick={onClear}
+              className="text-sm text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 transition-colors"
+            >
+              Clear All
+            </button>
+          )}
+          <button
+            onClick={() => setIsExpanded(!isExpanded)}
+            className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300 transition-colors"
           >
-            <X className="h-4 w-4 mr-1" />
-            Clear All
-          </Button>
-        )}
-      </CardHeader>
-      <CardContent className="space-y-6">
-        {/* Type Filter */}
-        <div className="space-y-2">
-          <Label htmlFor="type-filter">Type</Label>
-          <Select
-            value={localFilters.type || "all"}
-            onValueChange={(value) => handleFilterChange("type", value || undefined)}
-          >
-            <SelectTrigger id="type-filter">
-              <SelectValue placeholder="All types" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All types</SelectItem>
-              <SelectItem value="student">Students</SelectItem>
-              <SelectItem value="teacher">Teachers</SelectItem>
-              <SelectItem value="parent">Parents</SelectItem>
-              <SelectItem value="admin">Administrators</SelectItem>
-            </SelectContent>
-          </Select>
+            {isExpanded ? <X className="h-5 w-5" /> : <Target className="h-5 w-5" />}
+          </button>
         </div>
+      </div>
 
-        {/* Status Filter */}
-        <div className="space-y-2">
-          <Label htmlFor="status-filter">Status</Label>
-          <Select
-            value={localFilters.status || "all"}
-            onValueChange={(value) => handleFilterChange("status", value || undefined)}
-          >
-            <SelectTrigger id="status-filter">
-              <SelectValue placeholder="All statuses" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All statuses</SelectItem>
-              <SelectItem value="active">Active</SelectItem>
-              <SelectItem value="inactive">Inactive</SelectItem>
-              <SelectItem value="suspended">Suspended</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
+      {isExpanded && (
+        <div className="space-y-6">
+          {/* Content Type Filter */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Content Type</label>
+            <div className="grid grid-cols-2 md:grid-cols-5 gap-2">
+              {[
+                { value: "student", label: "Students", icon: GraduationCap },
+                { value: "teacher", label: "Teachers", icon: Users },
+                { value: "parent", label: "Parents", icon: Users },
+                { value: "school", label: "Schools", icon: Building },
+                { value: "user", label: "Users", icon: Users },
+              ].map(({ value, label, icon: Icon }) => (
+                <label key={value} className="flex items-center space-x-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={filters.type?.includes(value) || false}
+                    onChange={(e) => handleTypeChange(value, e.target.checked)}
+                    className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                  />
+                  <Icon className="h-4 w-4 text-gray-500" />
+                  <span className="text-sm text-gray-700 dark:text-gray-300">{label}</span>
+                </label>
+              ))}
+            </div>
+          </div>
 
-        {/* GPA Range Filter (only for students) */}
-        {(!localFilters.type || localFilters.type === "student") && (
-          <div className="space-y-3">
-            <Label>GPA Range</Label>
-            <div className="px-2">
-              <Slider
-                value={localFilters.gpaRange || [0, 4]}
-                onValueChange={(value) => handleFilterChange("gpaRange", value as [number, number])}
-                max={4}
-                min={0}
-                step={0.1}
-                className="w-full"
-              />
-              <div className="flex justify-between text-sm text-gray-500 mt-1">
-                <span>{localFilters.gpaRange?.[0]?.toFixed(1) || "0.0"}</span>
-                <span>{localFilters.gpaRange?.[1]?.toFixed(1) || "4.0"}</span>
+          {/* GPA Range Filter */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              GPA Range (Students Only)
+            </label>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">Minimum</label>
+                <input
+                  type="number"
+                  min="0"
+                  max="4"
+                  step="0.1"
+                  value={filters.gpaRange?.min || ""}
+                  onChange={(e) => handleGpaRangeChange("min", e.target.value)}
+                  placeholder="0.0"
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                />
+              </div>
+              <div>
+                <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">Maximum</label>
+                <input
+                  type="number"
+                  min="0"
+                  max="4"
+                  step="0.1"
+                  value={filters.gpaRange?.max || ""}
+                  onChange={(e) => handleGpaRangeChange("max", e.target.value)}
+                  placeholder="4.0"
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                />
               </div>
             </div>
           </div>
-        )}
 
-        {/* Discipline Points Range Filter (only for students) */}
-        {(!localFilters.type || localFilters.type === "student") && (
-          <div className="space-y-3">
-            <Label>Discipline Points Range</Label>
-            <div className="px-2">
-              <Slider
-                value={localFilters.disciplineRange || [0, 100]}
-                onValueChange={(value) => handleFilterChange("disciplineRange", value as [number, number])}
-                max={100}
-                min={0}
-                step={1}
-                className="w-full"
-              />
-              <div className="flex justify-between text-sm text-gray-500 mt-1">
-                <span>{localFilters.disciplineRange?.[0] || 0}</span>
-                <span>{localFilters.disciplineRange?.[1] || 100}</span>
+          {/* Discipline Points Range Filter */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              Discipline Points Range (Students Only)
+            </label>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">Minimum</label>
+                <input
+                  type="number"
+                  min="0"
+                  max="100"
+                  value={filters.disciplineRange?.min || ""}
+                  onChange={(e) => handleDisciplineRangeChange("min", e.target.value)}
+                  placeholder="0"
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                />
+              </div>
+              <div>
+                <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">Maximum</label>
+                <input
+                  type="number"
+                  min="0"
+                  max="100"
+                  value={filters.disciplineRange?.max || ""}
+                  onChange={(e) => handleDisciplineRangeChange("max", e.target.value)}
+                  placeholder="100"
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                />
               </div>
             </div>
           </div>
-        )}
 
-        {/* Class Filter */}
-        <div className="space-y-2">
-          <Label htmlFor="class-filter">Class</Label>
-          <Input
-            id="class-filter"
-            placeholder="Enter class name..."
-            value={localFilters.classId || ""}
-            onChange={(e) => handleFilterChange("classId", e.target.value || undefined)}
-          />
+          {/* Class Filter */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Class</label>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+              {["Form 1A", "Form 1B", "Form 2A", "Form 2B", "Form 3A", "Form 3B", "Form 4A", "Form 4B"].map(
+                (className) => (
+                  <label key={className} className="flex items-center space-x-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={filters.class?.includes(className) || false}
+                      onChange={(e) => handleClassChange(className, e.target.checked)}
+                      className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                    />
+                    <span className="text-sm text-gray-700 dark:text-gray-300">{className}</span>
+                  </label>
+                ),
+              )}
+            </div>
+          </div>
+
+          {/* Status Filter */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Status</label>
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+              {["active", "inactive", "suspended"].map((status) => (
+                <label key={status} className="flex items-center space-x-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={filters.status?.includes(status) || false}
+                    onChange={(e) => handleStatusChange(status, e.target.checked)}
+                    className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                  />
+                  <span className="text-sm text-gray-700 dark:text-gray-300 capitalize">{status}</span>
+                </label>
+              ))}
+            </div>
+          </div>
         </div>
-
-        {/* Active Filters Summary */}
-        {hasActiveFilters && (
-          <div className="pt-4 border-t">
-            <div className="text-sm text-gray-600 dark:text-gray-400">
-              <span className="font-medium">Active filters:</span>
-              <div className="flex flex-wrap gap-2 mt-2">
-                {localFilters.type && (
-                  <span className="inline-flex items-center px-2 py-1 rounded-full text-xs bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200">
-                    Type: {localFilters.type}
-                  </span>
-                )}
-                {localFilters.status && (
-                  <span className="inline-flex items-center px-2 py-1 rounded-full text-xs bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">
-                    Status: {localFilters.status}
-                  </span>
-                )}
-                {localFilters.gpaRange && (
-                  <span className="inline-flex items-center px-2 py-1 rounded-full text-xs bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200">
-                    GPA: {localFilters.gpaRange[0].toFixed(1)}-{localFilters.gpaRange[1].toFixed(1)}
-                  </span>
-                )}
-                {localFilters.disciplineRange && (
-                  <span className="inline-flex items-center px-2 py-1 rounded-full text-xs bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200">
-                    Discipline: {localFilters.disciplineRange[0]}-{localFilters.disciplineRange[1]}
-                  </span>
-                )}
-              </div>
-            </div>
-          </div>
-        )}
-      </CardContent>
-    </Card>
+      )}
+    </div>
   )
 }

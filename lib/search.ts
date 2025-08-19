@@ -1,299 +1,370 @@
-import { supabase } from "./supabase"
+import { SAMPLE_STUDENTS, SAMPLE_SCHOOLS } from "./data"
 
 export interface SearchResult {
   id: string
-  type: "student" | "teacher" | "parent" | "user"
-  name: string
-  email?: string
-  phone?: string
-  admission_number?: string
-  gpa?: number
-  discipline_points?: number
-  status: string
-  school_name?: string
-  role?: string
-  metadata?: Record<string, any>
+  type: "student" | "teacher" | "parent" | "school" | "user"
+  title: string
+  subtitle: string
+  description: string
+  metadata: Record<string, any>
+  relevanceScore: number
 }
 
 export interface SearchFilters {
-  type?: "student" | "teacher" | "parent" | "user" | "all"
-  status?: string
-  gpaMin?: number
-  gpaMax?: number
-  disciplineMin?: number
-  disciplineMax?: number
-  schoolId?: string
+  type?: string[]
+  dateRange?: {
+    start: Date
+    end: Date
+  }
+  gpaRange?: {
+    min: number
+    max: number
+  }
+  disciplineRange?: {
+    min: number
+    max: number
+  }
+  class?: string[]
+  status?: string[]
 }
 
 export interface SearchOptions {
-  query?: string
+  query: string
   filters?: SearchFilters
   page?: number
   limit?: number
-  sortBy?: string
+  sortBy?: "relevance" | "name" | "date" | "gpa" | "discipline"
   sortOrder?: "asc" | "desc"
 }
 
-export async function searchDatabase(options: SearchOptions = {}) {
-  const { query = "", filters = {}, page = 1, limit = 20, sortBy = "name", sortOrder = "asc" } = options
+// Mock data for teachers and parents
+const MOCK_TEACHERS = [
+  {
+    id: "teacher-1",
+    name: "John Smith",
+    email: "john.smith@school.edu",
+    subject: "Mathematics",
+    class: "Form 4A",
+    phone: "+254700123456",
+    joinDate: "2020-01-15",
+    status: "active",
+  },
+  {
+    id: "teacher-2",
+    name: "Mary Johnson",
+    email: "mary.johnson@school.edu",
+    subject: "English",
+    class: "Form 3B",
+    phone: "+254700234567",
+    joinDate: "2019-08-20",
+    status: "active",
+  },
+  {
+    id: "teacher-3",
+    name: "David Wilson",
+    email: "david.wilson@school.edu",
+    subject: "Science",
+    class: "Form 2C",
+    phone: "+254700345678",
+    joinDate: "2021-03-10",
+    status: "active",
+  },
+]
 
-  try {
-    const results: SearchResult[] = []
-    const offset = (page - 1) * limit
+const MOCK_PARENTS = [
+  {
+    id: "parent-1",
+    name: "Robert Brown",
+    email: "robert.brown@email.com",
+    phone: "+254700456789",
+    children: ["student-1"],
+    occupation: "Engineer",
+    address: "Nairobi, Kenya",
+    status: "active",
+  },
+  {
+    id: "parent-2",
+    name: "Sarah Davis",
+    email: "sarah.davis@email.com",
+    phone: "+254700567890",
+    children: ["student-2"],
+    occupation: "Doctor",
+    address: "Mombasa, Kenya",
+    status: "active",
+  },
+]
 
-    // Search students
-    if (!filters.type || filters.type === "student" || filters.type === "all") {
-      let studentQuery = supabase.from("students").select(`
-          id,
-          name,
-          email,
-          phone,
-          admission_number,
-          gpa,
-          discipline_points,
-          status,
-          school:schools(name)
-        `)
+// Search utility functions
+function calculateRelevanceScore(item: any, query: string): number {
+  const searchTerms = query
+    .toLowerCase()
+    .split(" ")
+    .filter((term) => term.length > 0)
+  let score = 0
 
-      if (query) {
-        studentQuery = studentQuery.or(`name.ilike.%${query}%,email.ilike.%${query}%,admission_number.ilike.%${query}%`)
-      }
+  // Convert item to searchable text
+  const searchableText = JSON.stringify(item).toLowerCase()
 
-      if (filters.status) {
-        studentQuery = studentQuery.eq("status", filters.status)
-      }
-
-      if (filters.gpaMin !== undefined) {
-        studentQuery = studentQuery.gte("gpa", filters.gpaMin)
-      }
-
-      if (filters.gpaMax !== undefined) {
-        studentQuery = studentQuery.lte("gpa", filters.gpaMax)
-      }
-
-      if (filters.disciplineMin !== undefined) {
-        studentQuery = studentQuery.gte("discipline_points", filters.disciplineMin)
-      }
-
-      if (filters.disciplineMax !== undefined) {
-        studentQuery = studentQuery.lte("discipline_points", filters.disciplineMax)
-      }
-
-      if (filters.schoolId) {
-        studentQuery = studentQuery.eq("school_id", filters.schoolId)
-      }
-
-      const { data: students } = await studentQuery
-        .order(sortBy, { ascending: sortOrder === "asc" })
-        .range(offset, offset + limit - 1)
-
-      if (students) {
-        results.push(
-          ...students.map((student) => ({
-            id: student.id,
-            type: "student" as const,
-            name: student.name,
-            email: student.email,
-            phone: student.phone,
-            admission_number: student.admission_number,
-            gpa: student.gpa,
-            discipline_points: student.discipline_points,
-            status: student.status,
-            school_name: student.school?.name,
-            metadata: {
-              admission_number: student.admission_number,
-              gpa: student.gpa,
-              discipline_points: student.discipline_points,
-            },
-          })),
-        )
-      }
+  searchTerms.forEach((term) => {
+    // Exact matches get higher scores
+    if (item.name?.toLowerCase().includes(term)) {
+      score += 10
     }
-
-    // Search users (teachers, parents, admins)
-    if (!filters.type || ["teacher", "parent", "user", "all"].includes(filters.type)) {
-      let userQuery = supabase.from("users").select(`
-          id,
-          name,
-          email,
-          phone,
-          role,
-          status,
-          school:schools(name)
-        `)
-
-      if (query) {
-        userQuery = userQuery.or(`name.ilike.%${query}%,email.ilike.%${query}%`)
-      }
-
-      if (filters.type && filters.type !== "all" && filters.type !== "user") {
-        userQuery = userQuery.eq("role", filters.type)
-      }
-
-      if (filters.status) {
-        userQuery = userQuery.eq("status", filters.status)
-      }
-
-      if (filters.schoolId) {
-        userQuery = userQuery.eq("school_id", filters.schoolId)
-      }
-
-      const { data: users } = await userQuery
-        .order(sortBy, { ascending: sortOrder === "asc" })
-        .range(offset, offset + limit - 1)
-
-      if (users) {
-        results.push(
-          ...users.map((user) => ({
-            id: user.id,
-            type: user.role as "teacher" | "parent",
-            name: user.name,
-            email: user.email,
-            phone: user.phone,
-            status: user.status,
-            role: user.role,
-            school_name: user.school?.name,
-            metadata: {
-              role: user.role,
-            },
-          })),
-        )
-      }
+    if (item.email?.toLowerCase().includes(term)) {
+      score += 8
     }
+    if (item.id?.toLowerCase().includes(term)) {
+      score += 6
+    }
+    // General text matches
+    if (searchableText.includes(term)) {
+      score += 2
+    }
+  })
 
-    // Sort and paginate combined results
-    const sortedResults = results.sort((a, b) => {
-      const aValue = a[sortBy as keyof SearchResult] || ""
-      const bValue = b[sortBy as keyof SearchResult] || ""
+  return score
+}
 
-      if (sortOrder === "asc") {
-        return aValue > bValue ? 1 : -1
-      } else {
-        return aValue < bValue ? 1 : -1
-      }
+function highlightText(text: string, query: string): string {
+  if (!query || !text) return text
+
+  const searchTerms = query
+    .toLowerCase()
+    .split(" ")
+    .filter((term) => term.length > 0)
+  let highlightedText = text
+
+  searchTerms.forEach((term) => {
+    const regex = new RegExp(`(${term})`, "gi")
+    highlightedText = highlightedText.replace(
+      regex,
+      '<mark class="bg-yellow-200 dark:bg-yellow-600 px-1 rounded">$1</mark>',
+    )
+  })
+
+  return highlightedText
+}
+
+function applyFilters(results: SearchResult[], filters: SearchFilters): SearchResult[] {
+  let filteredResults = [...results]
+
+  if (filters.type && filters.type.length > 0) {
+    filteredResults = filteredResults.filter((result) => filters.type!.includes(result.type))
+  }
+
+  if (filters.gpaRange) {
+    filteredResults = filteredResults.filter((result) => {
+      const gpa = result.metadata.gpa
+      return gpa >= filters.gpaRange!.min && gpa <= filters.gpaRange!.max
     })
+  }
 
-    const paginatedResults = sortedResults.slice(0, limit)
+  if (filters.disciplineRange) {
+    filteredResults = filteredResults.filter((result) => {
+      const discipline = result.metadata.disciplinePoints
+      return discipline >= filters.disciplineRange!.min && discipline <= filters.disciplineRange!.max
+    })
+  }
 
-    return {
-      results: paginatedResults,
-      total: results.length,
-      page,
-      limit,
-      totalPages: Math.ceil(results.length / limit),
+  if (filters.class && filters.class.length > 0) {
+    filteredResults = filteredResults.filter((result) => filters.class!.includes(result.metadata.class))
+  }
+
+  if (filters.status && filters.status.length > 0) {
+    filteredResults = filteredResults.filter((result) => filters.status!.includes(result.metadata.status || "active"))
+  }
+
+  return filteredResults
+}
+
+export async function performSearch(options: SearchOptions): Promise<{
+  results: SearchResult[]
+  total: number
+  page: number
+  totalPages: number
+  hasMore: boolean
+}> {
+  const { query, filters = {}, page = 1, limit = 10, sortBy = "relevance", sortOrder = "desc" } = options
+
+  // Simulate API delay
+  await new Promise((resolve) => setTimeout(resolve, 200))
+
+  let allResults: SearchResult[] = []
+
+  // Search students
+  SAMPLE_STUDENTS.forEach((student) => {
+    const score = calculateRelevanceScore(student, query)
+    if (score > 0 || !query) {
+      allResults.push({
+        id: student.id,
+        type: "student",
+        title: student.name,
+        subtitle: `Student ID: ${student.id} | Class: ${student.class}`,
+        description: `GPA: ${student.academicPerformance.gpa} | Discipline: ${student.disciplinePoints}/100`,
+        metadata: {
+          gpa: student.academicPerformance.gpa,
+          disciplinePoints: student.disciplinePoints,
+          class: student.class,
+          status: "active",
+          email: student.email,
+          phone: student.phone,
+          dateOfBirth: student.dateOfBirth,
+        },
+        relevanceScore: score,
+      })
     }
-  } catch (error) {
-    console.error("Error searching database:", error)
-    return {
-      results: [],
-      total: 0,
-      page: 1,
-      limit,
-      totalPages: 0,
+  })
+
+  // Search teachers
+  MOCK_TEACHERS.forEach((teacher) => {
+    const score = calculateRelevanceScore(teacher, query)
+    if (score > 0 || !query) {
+      allResults.push({
+        id: teacher.id,
+        type: "teacher",
+        title: teacher.name,
+        subtitle: `${teacher.subject} Teacher | Class: ${teacher.class}`,
+        description: `Email: ${teacher.email} | Phone: ${teacher.phone}`,
+        metadata: {
+          subject: teacher.subject,
+          class: teacher.class,
+          status: teacher.status,
+          email: teacher.email,
+          phone: teacher.phone,
+          joinDate: teacher.joinDate,
+        },
+        relevanceScore: score,
+      })
     }
+  })
+
+  // Search parents
+  MOCK_PARENTS.forEach((parent) => {
+    const score = calculateRelevanceScore(parent, query)
+    if (score > 0 || !query) {
+      allResults.push({
+        id: parent.id,
+        type: "parent",
+        title: parent.name,
+        subtitle: `Parent | ${parent.occupation}`,
+        description: `Email: ${parent.email} | Phone: ${parent.phone} | Address: ${parent.address}`,
+        metadata: {
+          occupation: parent.occupation,
+          status: parent.status,
+          email: parent.email,
+          phone: parent.phone,
+          address: parent.address,
+          children: parent.children,
+        },
+        relevanceScore: score,
+      })
+    }
+  })
+
+  // Search schools
+  SAMPLE_SCHOOLS.forEach((school) => {
+    const score = calculateRelevanceScore(school, query)
+    if (score > 0 || !query) {
+      allResults.push({
+        id: school.id,
+        type: "school",
+        title: school.name,
+        subtitle: `School | ${school.type}`,
+        description: `Address: ${school.address} | Contact: ${school.contact.email}`,
+        metadata: {
+          type: school.type,
+          status: "active",
+          email: school.contact.email,
+          phone: school.contact.phone,
+          address: school.address,
+        },
+        relevanceScore: score,
+      })
+    }
+  })
+
+  // Apply filters
+  allResults = applyFilters(allResults, filters)
+
+  // Sort results
+  allResults.sort((a, b) => {
+    switch (sortBy) {
+      case "name":
+        return sortOrder === "asc" ? a.title.localeCompare(b.title) : b.title.localeCompare(a.title)
+      case "date":
+        const dateA = new Date(a.metadata.joinDate || a.metadata.dateOfBirth || 0)
+        const dateB = new Date(b.metadata.joinDate || b.metadata.dateOfBirth || 0)
+        return sortOrder === "asc" ? dateA.getTime() - dateB.getTime() : dateB.getTime() - dateA.getTime()
+      case "gpa":
+        const gpaA = a.metadata.gpa || 0
+        const gpaB = b.metadata.gpa || 0
+        return sortOrder === "asc" ? gpaA - gpaB : gpaB - gpaA
+      case "discipline":
+        const discA = a.metadata.disciplinePoints || 0
+        const discB = b.metadata.disciplinePoints || 0
+        return sortOrder === "asc" ? discA - discB : discB - discA
+      default: // relevance
+        return b.relevanceScore - a.relevanceScore
+    }
+  })
+
+  // Pagination
+  const total = allResults.length
+  const totalPages = Math.ceil(total / limit)
+  const startIndex = (page - 1) * limit
+  const endIndex = startIndex + limit
+  const paginatedResults = allResults.slice(startIndex, endIndex)
+
+  // Highlight search terms in results
+  if (query) {
+    paginatedResults.forEach((result) => {
+      result.title = highlightText(result.title, query)
+      result.subtitle = highlightText(result.subtitle, query)
+      result.description = highlightText(result.description, query)
+    })
+  }
+
+  return {
+    results: paginatedResults,
+    total,
+    page,
+    totalPages,
+    hasMore: page < totalPages,
   }
 }
 
-export async function getSearchSuggestions(query: string, limit = 5) {
-  if (!query || query.length < 2) {
-    return []
-  }
+export function getSearchSuggestions(query: string): string[] {
+  if (!query || query.length < 2) return []
 
-  try {
-    const suggestions: string[] = []
+  const suggestions = new Set<string>()
+  const searchTerm = query.toLowerCase()
 
-    // Get student name suggestions
-    const { data: students } = await supabase
-      .from("students")
-      .select("name, admission_number")
-      .or(`name.ilike.%${query}%,admission_number.ilike.%${query}%`)
-      .limit(limit)
-
-    if (students) {
-      students.forEach((student) => {
-        if (student.name.toLowerCase().includes(query.toLowerCase())) {
-          suggestions.push(student.name)
-        }
-        if (student.admission_number?.toLowerCase().includes(query.toLowerCase())) {
-          suggestions.push(student.admission_number)
-        }
-      })
+  // Add student names
+  SAMPLE_STUDENTS.forEach((student) => {
+    if (student.name.toLowerCase().includes(searchTerm)) {
+      suggestions.add(student.name)
     }
-
-    // Get user name suggestions
-    const { data: users } = await supabase
-      .from("users")
-      .select("name, email")
-      .or(`name.ilike.%${query}%,email.ilike.%${query}%`)
-      .limit(limit)
-
-    if (users) {
-      users.forEach((user) => {
-        if (user.name.toLowerCase().includes(query.toLowerCase())) {
-          suggestions.push(user.name)
-        }
-        if (user.email?.toLowerCase().includes(query.toLowerCase())) {
-          suggestions.push(user.email)
-        }
-      })
+    if (student.class.toLowerCase().includes(searchTerm)) {
+      suggestions.add(student.class)
     }
+  })
 
-    // Remove duplicates and limit results
-    const uniqueSuggestions = [...new Set(suggestions)]
-    return uniqueSuggestions.slice(0, limit)
-  } catch (error) {
-    console.error("Error getting search suggestions:", error)
-    return []
-  }
-}
-
-export async function getAdvancedSearchFilters(schoolId?: string) {
-  try {
-    const filters = {
-      statuses: ["active", "inactive", "suspended", "graduated"],
-      types: ["student", "teacher", "parent", "admin"],
-      gpaRange: { min: 0, max: 4.0 },
-      disciplineRange: { min: 0, max: 100 },
-      schools: [] as Array<{ id: string; name: string }>,
+  // Add teacher names and subjects
+  MOCK_TEACHERS.forEach((teacher) => {
+    if (teacher.name.toLowerCase().includes(searchTerm)) {
+      suggestions.add(teacher.name)
     }
-
-    // Get schools for filter
-    const { data: schools } = await supabase.from("schools").select("id, name").order("name")
-
-    if (schools) {
-      filters.schools = schools
+    if (teacher.subject.toLowerCase().includes(searchTerm)) {
+      suggestions.add(teacher.subject)
     }
+  })
 
-    // Get actual GPA range from database
-    const { data: gpaStats } = await supabase.from("students").select("gpa").not("gpa", "is", null)
-
-    if (gpaStats && gpaStats.length > 0) {
-      const gpas = gpaStats.map((s) => s.gpa).filter((gpa) => gpa !== null)
-      filters.gpaRange.min = Math.min(...gpas)
-      filters.gpaRange.max = Math.max(...gpas)
+  // Add parent names
+  MOCK_PARENTS.forEach((parent) => {
+    if (parent.name.toLowerCase().includes(searchTerm)) {
+      suggestions.add(parent.name)
     }
+  })
 
-    // Get actual discipline range from database
-    const { data: disciplineStats } = await supabase
-      .from("students")
-      .select("discipline_points")
-      .not("discipline_points", "is", null)
-
-    if (disciplineStats && disciplineStats.length > 0) {
-      const points = disciplineStats.map((s) => s.discipline_points).filter((p) => p !== null)
-      filters.disciplineRange.min = Math.min(...points)
-      filters.disciplineRange.max = Math.max(...points)
-    }
-
-    return filters
-  } catch (error) {
-    console.error("Error getting search filters:", error)
-    return {
-      statuses: ["active", "inactive", "suspended"],
-      types: ["student", "teacher", "parent"],
-      gpaRange: { min: 0, max: 4.0 },
-      disciplineRange: { min: 0, max: 100 },
-      schools: [],
-    }
-  }
+  return Array.from(suggestions).slice(0, 5)
 }
